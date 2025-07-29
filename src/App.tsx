@@ -3,16 +3,16 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Layout } from "@/components/layout";
-import Index from "./pages/Index";
-import Login from "./pages/auth/Login";
-import Signup from "./pages/auth/Signup";
-import Marketplace from "./pages/Marketplace";
-import Playground from "./pages/Playground";
-import Dashboard from "./pages/Dashboard";
-import Pricing from "./pages/Pricing";
-import NotFound from "./pages/NotFound";
+import { ThemeProvider } from "@/common/theme-provider";
+import { Layout } from "@/common/layout";
+import Index from "./components/pagewise/user/index/Index";
+import Login from "./components/pagewise/auth/user/login/Login";
+import Signup from "./components/pagewise/auth/user/signup/Signup";
+import Marketplace from "./components/pagewise/user/marketplaces/Marketplace";
+import Playground from "./components/pagewise/user/playground/Playground";
+import Dashboard from "./components/pagewise/user/dashboard/Dashboard";
+import Pricing from "./components/pagewise/user/pricing/Pricing";
+import NotFound from "./components/pagewise/NotFound";
 
 const queryClient = new QueryClient();
 
