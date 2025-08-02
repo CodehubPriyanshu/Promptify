@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Menu, X, Sparkles, User, LogOut, Settings } from "lucide-react"
+import { Menu, X, Sparkles, User, LogOut, Settings, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/common/theme-toggle"
 import { useAuth } from "@/contexts/AuthContext"
@@ -98,6 +98,14 @@ export function Navbar() {
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
+                  {user?.role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/dashboard" className="cursor-pointer">
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
@@ -174,6 +182,14 @@ export function Navbar() {
                         Dashboard
                       </Link>
                     </Button>
+                    {user?.role === 'admin' && (
+                      <Button variant="ghost" className="w-full justify-start" asChild>
+                        <Link to="/admin/dashboard" onClick={() => setIsOpen(false)}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin Panel
+                        </Link>
+                      </Button>
+                    )}
                     <Button variant="ghost" className="w-full justify-start" onClick={() => { logout(); setIsOpen(false); }}>
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out

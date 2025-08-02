@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -13,9 +14,9 @@ const AdminLogin = () => {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { adminLogin, isLoading } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -29,7 +30,6 @@ const AdminLogin = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
     try {
@@ -38,24 +38,13 @@ const AdminLogin = () => {
         throw new Error('Please fill in all fields');
       }
 
-      // Mock admin login - replace with actual API call
-      if (formData.email === 'admin@promptify.com' && formData.password === 'admin123') {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Store admin token (in real app, this would come from API)
-        localStorage.setItem('adminToken', 'mock-admin-token');
-        localStorage.setItem('userRole', 'admin');
-        
-        // Redirect to admin dashboard
-        navigate('/admin/dashboard');
-      } else {
-        throw new Error('Invalid admin credentials');
-      }
+      // Use the adminLogin function from AuthContext
+      await adminLogin(formData.email, formData.password);
+
+      // Redirect to admin dashboard
+      navigate('/admin/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -117,7 +106,7 @@ const AdminLogin = () => {
                     value={formData.password}
                     onChange={handleInputChange}
                     required
-                    disabled={loading}
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -125,7 +114,7 @@ const AdminLogin = () => {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={loading}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -136,12 +125,12 @@ const AdminLogin = () => {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
               >
-                {loading ? (
+                {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Signing in...</span>

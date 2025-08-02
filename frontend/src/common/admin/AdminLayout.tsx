@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Store,
@@ -13,7 +14,9 @@ import {
   Menu,
   LogOut,
   Bell,
-  TrendingUp
+  TrendingUp,
+  Home,
+  ExternalLink
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -23,6 +26,7 @@ interface AdminLayoutProps {
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const { logout } = useAuth();
 
   const navigation = [
     {
@@ -70,6 +74,27 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     }
   ];
 
+  const mainAppNavigation = [
+    {
+      name: 'Main App',
+      href: '/',
+      icon: Home,
+      current: false
+    },
+    {
+      name: 'User Dashboard',
+      href: '/dashboard',
+      icon: LayoutDashboard,
+      current: false
+    },
+    {
+      name: 'Marketplace',
+      href: '/marketplace',
+      icon: Store,
+      current: false
+    }
+  ];
+
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Logo */}
@@ -112,6 +137,30 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </Link>
           );
         })}
+
+        {/* Main App Navigation */}
+        <div className="border-t pt-4 mt-4">
+          <div className="px-3 mb-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Main App
+            </h3>
+          </div>
+          {mainAppNavigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className="group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                <span className="flex-1">{item.name}</span>
+                <ExternalLink className="ml-auto h-4 w-4" />
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* User Menu */}
@@ -125,7 +174,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="text-xs text-muted-foreground">admin@promptify.com</div>
           </div>
         </div>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start"
+          onClick={logout}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Sign Out
         </Button>

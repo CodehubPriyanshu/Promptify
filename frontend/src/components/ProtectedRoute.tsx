@@ -37,9 +37,16 @@ const ProtectedRoute = ({
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
-  // If user is authenticated but trying to access auth pages, redirect to dashboard
+  // If user is authenticated but trying to access auth pages, redirect appropriately
   if (isAuthenticated && (location.pathname === '/auth/login' || location.pathname === '/auth/signup')) {
-    return <Navigate to="/dashboard" replace />;
+    // If admin user, redirect to admin dashboard, otherwise to user dashboard
+    const redirectPath = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+    return <Navigate to={redirectPath} replace />;
+  }
+
+  // If admin is authenticated but trying to access admin login, redirect to admin dashboard
+  if (isAuthenticated && user?.role === 'admin' && location.pathname === '/admin/login') {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <>{children}</>;

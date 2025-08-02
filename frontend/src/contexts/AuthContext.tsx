@@ -25,6 +25,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  adminLogin: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -57,34 +58,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem('authToken');
-      if (!token) {
+      const adminToken = localStorage.getItem('adminToken');
+      const userRole = localStorage.getItem('userRole');
+
+      if (!token && !adminToken) {
         setIsLoading(false);
         return;
       }
 
-      // Mock user data - replace with actual API call
-      const mockUser: User = {
-        id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        role: 'user',
-        subscription: {
-          plan: 'Free',
-          status: 'active'
-        },
-        usage: {
-          playgroundSessions: {
-            current: 3,
-            limit: 10
+      // Check for admin authentication
+      if (adminToken && userRole === 'admin') {
+        const mockAdminUser: User = {
+          id: 'admin-1',
+          name: 'Admin User',
+          email: 'admin@promptify.com',
+          role: 'admin',
+          subscription: {
+            plan: 'Admin',
+            status: 'active'
           },
-          promptsCreated: 5
-        }
-      };
+          usage: {
+            playgroundSessions: {
+              current: 0,
+              limit: 999999
+            },
+            promptsCreated: 0
+          }
+        };
+        setUser(mockAdminUser);
+        setIsLoading(false);
+        return;
+      }
 
-      setUser(mockUser);
+      // Regular user authentication
+      if (token) {
+        // Mock user data - replace with actual API call
+        const mockUser: User = {
+          id: '1',
+          name: 'John Doe',
+          email: 'john@example.com',
+          role: 'user',
+          subscription: {
+            plan: 'Free',
+            status: 'active'
+          },
+          usage: {
+            playgroundSessions: {
+              current: 3,
+              limit: 10
+            },
+            promptsCreated: 5
+          }
+        };
+        setUser(mockUser);
+      }
     } catch (error) {
       console.error('Auth check failed:', error);
       localStorage.removeItem('authToken');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('userRole');
     } finally {
       setIsLoading(false);
     }
@@ -196,8 +228,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const adminLogin = async (email: string, password: string) => {
+    try {
+      setIsLoading(true);
+
+      // Demo admin credentials
+      if (email === 'admin@promptify.com' && password === 'admin123') {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const mockAdminUser: User = {
+          id: 'admin-1',
+          name: 'Admin User',
+          email: 'admin@promptify.com',
+          role: 'admin',
+          subscription: {
+            plan: 'Admin',
+            status: 'active'
+          },
+          usage: {
+            playgroundSessions: {
+              current: 0,
+              limit: 999999
+            },
+            promptsCreated: 0
+          }
+        };
+
+        // Store admin tokens
+        localStorage.setItem('adminToken', 'mock-admin-token');
+        localStorage.setItem('userRole', 'admin');
+
+        // Set user data
+        setUser(mockAdminUser);
+      } else {
+        throw new Error('Invalid admin credentials');
+      }
+    } catch (error) {
+      throw error; // Re-throw to be handled by the component
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('userRole');
     setUser(null);
   };
 
@@ -225,6 +302,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!user,
     isLoading,
     login,
+    adminLogin,
     signup,
     logout,
     updateUser,

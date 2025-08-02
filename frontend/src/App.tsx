@@ -74,8 +74,8 @@ const App = () => (
             {/* Legacy route for backward compatibility */}
             <Route path="/user/pricing" element={<Layout><Pricing /></Layout>} />
 
-            {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
+            {/* Admin Routes - Flexible navigation */}
+            <Route path="/admin/login" element={<ProtectedRoute requireAuth={false}><AdminLogin /></ProtectedRoute>} />
             <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/marketplace" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminMarketplace /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminUsers /></AdminLayout></ProtectedRoute>} />
