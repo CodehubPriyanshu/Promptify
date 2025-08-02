@@ -240,4 +240,62 @@ router.post('/logout', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/admin/login
+// @desc    Admin login
+// @access  Public
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // For demo purposes, use hardcoded admin credentials
+    if (email === 'admin@promptify.com' && password === 'admin123') {
+      // Create a mock admin user
+      const adminUser = {
+        id: 'admin-1',
+        name: 'Admin User',
+        email: 'admin@promptify.com',
+        role: 'admin',
+        subscription: {
+          plan: 'Admin',
+          status: 'active'
+        },
+        usage: {
+          playgroundSessions: {
+            current: 0,
+            limit: 999999
+          },
+          promptsCreated: 0
+        }
+      };
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: adminUser.id,
+          email: adminUser.email,
+          role: adminUser.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRE }
+      );
+
+      res.json(
+        formatResponse(true, 'Admin login successful', {
+          token,
+          user: adminUser
+        })
+      );
+    } else {
+      return res.status(401).json(
+        formatResponse(false, 'Invalid admin credentials')
+      );
+    }
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Admin login failed')
+    );
+  }
+});
+
 export default router;

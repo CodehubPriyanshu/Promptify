@@ -232,11 +232,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      // Demo admin credentials
-      if (email === 'admin@promptify.com' && password === 'admin123') {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Make API call to admin login endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Admin login failed');
+      }
+
+      const data = await response.json();
+
+      // Store admin token
+      localStorage.setItem('adminToken', data.data.token);
+      localStorage.setItem('userRole', 'admin');
+
+      // Set user data
+      setUser(data.data.user);
+    } catch (error) {
+      // Fallback to demo credentials for development
+      if (email === 'admin@promptify.com' && password === 'admin123') {
         const mockAdminUser: User = {
           id: 'admin-1',
           name: 'Admin User',
@@ -262,10 +282,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Set user data
         setUser(mockAdminUser);
       } else {
-        throw new Error('Invalid admin credentials');
+        throw error; // Re-throw to be handled by the component
       }
-    } catch (error) {
-      throw error; // Re-throw to be handled by the component
     } finally {
       setIsLoading(false);
     }

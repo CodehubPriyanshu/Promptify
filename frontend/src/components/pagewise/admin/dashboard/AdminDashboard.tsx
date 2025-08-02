@@ -57,27 +57,36 @@ const AdminDashboard = () => {
     isLoading: isLoadingActivity
   } = useAdminRecentActivity(10);
 
-  const stats = dashboardData?.data;
+  // Handle empty data gracefully with default values
+  const stats = dashboardData?.data || {
+    users: { total: 0, new: 0, premium: 0, growth: 0 },
+    prompts: { total: 0, published: 0, pending: 0, new: 0 },
+    revenue: { total: 0, previous: 0, growth: 0 },
+    analytics: { totalViews: 0, totalDownloads: 0 }
+  };
   const recentActivities = recentActivityData?.data || [];
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  if (error || !stats) {
+  if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold">Failed to load dashboard</h3>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold">Failed to load dashboard</h3>
+          <p className="text-sm text-muted-foreground mt-2">
             {error?.message || 'Please try refreshing the page'}
           </p>
-          <Button onClick={() => refetch()} className="mt-4">
+          <Button onClick={() => refetch()} className="mt-4" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
             Retry
           </Button>
@@ -87,15 +96,20 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Overview of your Promptify platform
           </p>
         </div>
-        <Button onClick={() => refetch()} disabled={isLoading}>
+        <Button
+          onClick={() => refetch()}
+          disabled={isLoading}
+          size="sm"
+          className="w-full sm:w-auto"
+        >
           <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
@@ -158,7 +172,10 @@ const AdminDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.users.premium.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {((stats.users.premium / stats.users.total) * 100).toFixed(1)}% conversion rate
+              {stats.users.total > 0
+                ? `${((stats.users.premium / stats.users.total) * 100).toFixed(1)}% conversion rate`
+                : 'No data available'
+              }
             </p>
           </CardContent>
         </Card>
@@ -166,19 +183,19 @@ const AdminDashboard = () => {
 
       {/* Detailed Analytics */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm">Users</TabsTrigger>
+          <TabsTrigger value="prompts" className="text-xs sm:text-sm">Prompts</TabsTrigger>
+          <TabsTrigger value="revenue" className="text-xs sm:text-sm">Revenue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest platform activity</CardDescription>
+                <CardTitle className="text-base sm:text-lg">Recent Activity</CardTitle>
+                <CardDescription className="text-sm">Latest platform activity</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {isLoadingActivity ? (
@@ -230,8 +247,10 @@ const AdminDashboard = () => {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No recent activity found
+                  <div className="text-center py-8 text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No recent activity found</p>
+                    <p className="text-xs mt-1">Activity will appear here as users interact with the platform</p>
                   </div>
                 )}
 

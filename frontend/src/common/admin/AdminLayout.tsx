@@ -191,7 +191,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Bar */}
-        <header className="flex h-16 items-center border-b bg-background px-6 gap-4">
+        <header className="flex h-16 items-center border-b bg-background px-4 sm:px-6 gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="sm"
@@ -207,10 +207,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search users, prompts, plans..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4"
+                className="pl-10 pr-4 text-sm"
               />
             </form>
           </div>
@@ -220,17 +220,17 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
+              <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 p-1 sm:p-2">
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
                   <span className="text-primary-foreground text-sm font-medium">
                     {user?.name?.charAt(0)?.toUpperCase() || 'A'}
                   </span>
                 </div>
-                <div className="hidden md:block text-left">
+                <div className="hidden sm:block text-left">
                   <div className="text-sm font-medium">{user?.name || 'Admin User'}</div>
                   <div className="text-xs text-muted-foreground">{user?.email || 'admin@promptify.com'}</div>
                 </div>
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 hidden sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
