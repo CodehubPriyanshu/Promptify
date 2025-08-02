@@ -3,21 +3,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
-  XCircle, 
+import { useToast } from '@/hooks/use-toast';
+import {
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  CheckCircle,
+  XCircle,
   Star,
   TrendingUp,
-  Plus
+  Plus,
+  Download,
+  Heart,
+  DollarSign,
+  Users,
+  BarChart3
 } from 'lucide-react';
 
 interface Prompt {
@@ -44,12 +52,27 @@ interface Prompt {
 }
 
 const AdminMarketplace = () => {
+  const { toast } = useToast();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    category: '',
+    type: 'free' as 'free' | 'premium',
+    price: 0,
+    status: 'draft' as 'draft' | 'published' | 'archived' | 'rejected',
+    featured: false,
+    trending: false
+  });
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
 
@@ -102,32 +125,155 @@ const AdminMarketplace = () => {
   const handleStatusUpdate = async (promptId: string, newStatus: string) => {
     try {
       // API call to update prompt status
-      setPrompts(prev => prev.map(prompt => 
+      setPrompts(prev => prev.map(prompt =>
         prompt.id === promptId ? { ...prompt, status: newStatus as any } : prompt
       ));
+      toast({
+        title: "Status Updated",
+        description: `Prompt status changed to ${newStatus}`,
+      });
     } catch (error) {
       console.error('Failed to update prompt status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update prompt status",
+        variant: "destructive"
+      });
     }
   };
 
   const handleFeatureToggle = async (promptId: string) => {
     try {
-      setPrompts(prev => prev.map(prompt => 
+      setPrompts(prev => prev.map(prompt =>
         prompt.id === promptId ? { ...prompt, featured: !prompt.featured } : prompt
       ));
+      toast({
+        title: "Featured Status Updated",
+        description: "Prompt featured status has been toggled",
+      });
     } catch (error) {
       console.error('Failed to toggle featured status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update featured status",
+        variant: "destructive"
+      });
     }
   };
 
   const handleTrendingToggle = async (promptId: string) => {
     try {
-      setPrompts(prev => prev.map(prompt => 
+      setPrompts(prev => prev.map(prompt =>
         prompt.id === promptId ? { ...prompt, trending: !prompt.trending } : prompt
       ));
+      toast({
+        title: "Trending Status Updated",
+        description: "Prompt trending status has been toggled",
+      });
     } catch (error) {
       console.error('Failed to toggle trending status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update trending status",
+        variant: "destructive"
+      });
     }
+  };
+
+  const handleEdit = (prompt: Prompt) => {
+    setSelectedPrompt(prompt);
+    setEditForm({
+      title: prompt.title,
+      description: prompt.description,
+      category: prompt.category,
+      type: prompt.type,
+      price: prompt.price,
+      status: prompt.status,
+      featured: prompt.featured,
+      trending: prompt.trending
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setEditForm({
+      title: '',
+      description: '',
+      category: '',
+      type: 'free',
+      price: 0,
+      status: 'draft',
+      featured: false,
+      trending: false
+    });
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      if (selectedPrompt) {
+        // Update existing prompt
+        setPrompts(prev => prev.map(prompt =>
+          prompt.id === selectedPrompt.id
+            ? { ...prompt, ...editForm }
+            : prompt
+        ));
+        toast({
+          title: "Prompt Updated",
+          description: "Prompt has been successfully updated",
+        });
+      } else {
+        // Create new prompt
+        const newPrompt: Prompt = {
+          id: Date.now().toString(),
+          ...editForm,
+          author: { name: 'Admin', email: 'admin@promptify.com' },
+          analytics: { views: 0, downloads: 0, likes: 0, revenue: 0 },
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        setPrompts(prev => [newPrompt, ...prev]);
+        toast({
+          title: "Prompt Created",
+          description: "New prompt has been successfully created",
+        });
+      }
+      setIsEditDialogOpen(false);
+      setIsCreateDialogOpen(false);
+      setSelectedPrompt(null);
+    } catch (error) {
+      console.error('Failed to save prompt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save prompt",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      if (selectedPrompt) {
+        setPrompts(prev => prev.filter(prompt => prompt.id !== selectedPrompt.id));
+        toast({
+          title: "Prompt Deleted",
+          description: "Prompt has been successfully deleted",
+        });
+        setIsDeleteDialogOpen(false);
+        setSelectedPrompt(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete prompt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete prompt",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const openDeleteDialog = (prompt: Prompt) => {
+    setSelectedPrompt(prompt);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredPrompts = prompts.filter(prompt => {
@@ -136,9 +282,20 @@ const AdminMarketplace = () => {
                          prompt.author.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || prompt.status === statusFilter;
     const matchesCategory = categoryFilter === 'all' || prompt.category === categoryFilter;
-    
-    return matchesSearch && matchesStatus && matchesCategory;
+    const matchesType = typeFilter === 'all' || prompt.type === typeFilter;
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesType;
   });
+
+  // Calculate statistics
+  const stats = {
+    total: prompts.length,
+    published: prompts.filter(p => p.status === 'published').length,
+    pending: prompts.filter(p => p.status === 'draft').length,
+    revenue: prompts.reduce((sum, p) => sum + p.analytics.revenue, 0),
+    totalViews: prompts.reduce((sum, p) => sum + p.analytics.views, 0),
+    totalDownloads: prompts.reduce((sum, p) => sum + p.analytics.downloads, 0)
+  };
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -168,16 +325,74 @@ const AdminMarketplace = () => {
             Manage prompts, reviews, and marketplace content
           </p>
         </div>
-        <Button>
+        <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
           Create Prompt
         </Button>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Prompts</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.published} published
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${stats.revenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              From premium prompts
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+            <Eye className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Across all prompts
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Downloads</CardTitle>
+            <Download className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalDownloads}</div>
+            <p className="text-xs text-muted-foreground">
+              Total downloads
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filters & Search</CardTitle>
+          <CardDescription>
+            Filter and search through {prompts.length} prompts
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
@@ -185,7 +400,7 @@ const AdminMarketplace = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search prompts..."
+                  placeholder="Search prompts, authors, descriptions..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -213,9 +428,18 @@ const AdminMarketplace = () => {
                 <SelectItem value="writing">Writing</SelectItem>
                 <SelectItem value="development">Development</SelectItem>
                 <SelectItem value="marketing">Marketing</SelectItem>
-                <SelectItem value="education">Education</SelectItem>
                 <SelectItem value="business">Business</SelectItem>
-                <SelectItem value="analytics">Analytics</SelectItem>
+                <SelectItem value="education">Education</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="premium">Premium</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -298,22 +522,38 @@ const AdminMarketplace = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(prompt)}
+                        title="Edit prompt"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleFeatureToggle(prompt.id)}
+                        title="Toggle featured"
                       >
-                        <Star className={`h-4 w-4 ${prompt.featured ? 'fill-current' : ''}`} />
+                        <Star className={`h-4 w-4 ${prompt.featured ? 'fill-current text-yellow-500' : ''}`} />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleTrendingToggle(prompt.id)}
+                        title="Toggle trending"
+                      >
+                        <TrendingUp className={`h-4 w-4 ${prompt.trending ? 'text-green-500' : ''}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDeleteDialog(prompt)}
+                        title="Delete prompt"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
                   </TableCell>
@@ -323,6 +563,164 @@ const AdminMarketplace = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit/Create Dialog */}
+      <Dialog open={isEditDialogOpen || isCreateDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsEditDialogOpen(false);
+          setIsCreateDialogOpen(false);
+          setSelectedPrompt(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedPrompt ? 'Edit Prompt' : 'Create New Prompt'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedPrompt ? 'Update the prompt details below.' : 'Fill in the details to create a new prompt.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={editForm.title}
+                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter prompt title"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter prompt description"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={editForm.category} onValueChange={(value) => setEditForm(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="writing">Writing</SelectItem>
+                    <SelectItem value="development">Development</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="education">Education</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="type">Type</Label>
+                <Select value={editForm.type} onValueChange={(value: 'free' | 'premium') => setEditForm(prev => ({ ...prev, type: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {editForm.type === 'premium' && (
+              <div className="grid gap-2">
+                <Label htmlFor="price">Price ($)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={editForm.status} onValueChange={(value: any) => setEditForm(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="featured"
+                  checked={editForm.featured}
+                  onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, featured: checked }))}
+                />
+                <Label htmlFor="featured">Featured</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="trending"
+                  checked={editForm.trending}
+                  onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, trending: checked }))}
+                />
+                <Label htmlFor="trending">Trending</Label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => {
+              setIsEditDialogOpen(false);
+              setIsCreateDialogOpen(false);
+              setSelectedPrompt(null);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              {selectedPrompt ? 'Update' : 'Create'} Prompt
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Prompt</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedPrompt?.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

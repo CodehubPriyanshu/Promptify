@@ -1,4 +1,7 @@
 import { Navbar } from "@/common/navbar"
+import Footer from "@/components/common/Footer"
+import FooterModals from "@/components/modals/FooterModals"
+import { ModalProvider } from "@/contexts/ModalContext"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -6,9 +9,13 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main>{children}</main>
-    </div>
+    <ModalProvider>
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <main className="flex-1">{children}</main>
+        <Footer />
+        <FooterModals />
+      </div>
+    </ModalProvider>
   )
 }

@@ -11,8 +11,8 @@ const router = express.Router();
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_key_id_12345',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_key_for_development'
 });
 
 // @route   GET /api/payment/plans

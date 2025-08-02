@@ -1,3 +1,5 @@
+import { handleError, withRetry, AppError, ErrorTypes } from '@/utils/errorHandler';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 interface ApiResponse<T> {
@@ -33,23 +35,58 @@ class ApiService {
     };
 
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+      return await withRetry(async () => {
+        const response = await fetch(url, config);
 
-      if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
 
-      return {
-        success: true,
-        data: data.data || data,
-        message: data.message,
-      };
+          // Create appropriate error based on status
+          let errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+          let errorCode = ErrorTypes.SERVER_ERROR;
+
+          switch (response.status) {
+            case 400:
+              errorCode = ErrorTypes.VALIDATION_ERROR;
+              break;
+            case 401:
+              errorCode = ErrorTypes.AUTHENTICATION_ERROR;
+              // Clear invalid token
+              localStorage.removeItem('authToken');
+              break;
+            case 403:
+              errorCode = ErrorTypes.AUTHORIZATION_ERROR;
+              break;
+            case 404:
+              errorCode = ErrorTypes.NOT_FOUND_ERROR;
+              break;
+            case 429:
+              errorCode = ErrorTypes.RATE_LIMIT_ERROR;
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              errorCode = ErrorTypes.SERVER_ERROR;
+              break;
+          }
+
+          throw new AppError(errorMessage, response.status, errorCode, errorData);
+        }
+
+        const data = await response.json();
+        return {
+          success: true,
+          data: data.data || data,
+          message: data.message,
+        };
+      }, 3, 1000);
     } catch (error) {
-      console.error('API request failed:', error);
+      const appError = handleError(error, `API ${options.method || 'GET'} ${endpoint}`);
+      // For backward compatibility, return error response format
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: appError.message,
       };
     }
   }
@@ -84,6 +121,19 @@ class ApiService {
 
   async getUserAnalytics(period = '30d') {
     return this.request<any>(`/user/analytics?period=${period}`);
+  }
+
+  async updatePrompt(id: string, data: any) {
+    return this.request<any>(`/user/prompts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePrompt(id: string) {
+    return this.request<any>(`/user/prompts/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Marketplace endpoints

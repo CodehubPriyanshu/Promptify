@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
+import { showErrorToast, handleError } from '@/utils/errorHandler';
+import { useToast } from '@/hooks/use-toast';
 
 // Query keys for consistent caching
 export const queryKeys = {
@@ -28,12 +30,26 @@ export const queryKeys = {
   subscriptionPlans: ['payment', 'plans'],
 };
 
+// Global error handler for React Query
+const defaultQueryOptions = {
+  retry: (failureCount: number, error: any) => {
+    // Don't retry on 4xx errors (except 429)
+    if (error?.status >= 400 && error?.status < 500 && error?.status !== 429) {
+      return false;
+    }
+    // Retry up to 3 times for other errors
+    return failureCount < 3;
+  },
+  retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  staleTime: 5 * 60 * 1000, // 5 minutes
+};
+
 // Auth hooks
 export const useProfile = () => {
   return useQuery({
     queryKey: queryKeys.profile,
     queryFn: () => apiService.getProfile(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    ...defaultQueryOptions,
   });
 };
 
@@ -62,12 +78,57 @@ export const useUserAnalytics = (period = '30d') => {
   });
 };
 
+export const useUpdatePrompt = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiService.updatePrompt(id, data),
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: ['user', 'prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
+      toast({
+        title: "Success",
+        description: "Prompt updated successfully!",
+      });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Updating prompt');
+    },
+  });
+};
+
+export const useDeletePrompt = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => apiService.deletePrompt(id),
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: ['user', 'prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
+      toast({
+        title: "Success",
+        description: "Prompt deleted successfully!",
+      });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Deleting prompt');
+    },
+  });
+};
+
 // Marketplace hooks
 export const useMarketplacePrompts = (params: any = {}) => {
   return useQuery({
     queryKey: queryKeys.marketplacePrompts(params),
     queryFn: () => apiService.getMarketplacePrompts(params),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    ...defaultQueryOptions,
+    staleTime: 2 * 60 * 1000, // 2 minutes (override default)
   });
 };
 
@@ -82,7 +143,8 @@ export const usePrompt = (id: string) => {
 
 export const useLikePrompt = () => {
   const queryClient = useQueryClient();
-  
+  const { toast } = useToast();
+
   return useMutation({
     mutationFn: (promptId: string) => apiService.likePrompt(promptId),
     onSuccess: (data, promptId) => {
@@ -90,13 +152,21 @@ export const useLikePrompt = () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
       // Update specific prompt cache
       queryClient.invalidateQueries({ queryKey: queryKeys.prompt(promptId) });
+      toast({
+        title: "Success",
+        description: "Prompt liked successfully!",
+      });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Liking prompt');
     },
   });
 };
 
 export const useDownloadPrompt = () => {
   const queryClient = useQueryClient();
-  
+  const { toast } = useToast();
+
   return useMutation({
     mutationFn: (promptId: string) => apiService.downloadPrompt(promptId),
     onSuccess: (data, promptId) => {
@@ -105,6 +175,13 @@ export const useDownloadPrompt = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.prompt(promptId) });
       // Invalidate user dashboard to update usage
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      toast({
+        title: "Success",
+        description: "Prompt downloaded successfully!",
+      });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Downloading prompt');
     },
   });
 };

@@ -3,16 +3,17 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { 
-  LayoutDashboard, 
-  Store, 
-  Users, 
-  FileText, 
-  DollarSign, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Store,
+  Users,
+  FileText,
+  DollarSign,
+  Settings,
   Menu,
   LogOut,
-  Bell
+  Bell,
+  TrendingUp
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -37,6 +38,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       current: location.pathname === '/admin/marketplace'
     },
     {
+      name: 'Plans',
+      href: '/admin/plans',
+      icon: DollarSign,
+      current: location.pathname === '/admin/plans'
+    },
+    {
       name: 'Users',
       href: '/admin/users',
       icon: Users,
@@ -52,7 +59,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       name: 'Revenue',
       href: '/admin/revenue',
-      icon: DollarSign,
+      icon: TrendingUp,
       current: location.pathname === '/admin/revenue'
     },
     {

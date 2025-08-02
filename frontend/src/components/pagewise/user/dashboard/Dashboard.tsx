@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/AuthContext"
-import { useDashboard, useUserPrompts, useUserAnalytics } from "@/hooks/useApi"
+import { useDashboard, useUserPrompts, useUserAnalytics, useUpdatePrompt, useDeletePrompt } from "@/hooks/useApi"
 
 const Dashboard = () => {
   const { user } = useAuth()
@@ -24,19 +26,27 @@ const Dashboard = () => {
     isPaid: false,
     price: ""
   })
+  const [editingPrompt, setEditingPrompt] = useState<any>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Fetch real data
   const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError } = useDashboard()
   const { data: userPromptsData, isLoading: promptsLoading } = useUserPrompts(1, 10)
   const { data: analyticsData, isLoading: analyticsLoading } = useUserAnalytics('30d')
 
+  // Mutations
+  const updatePromptMutation = useUpdatePrompt()
+  const deletePromptMutation = useDeletePrompt()
+
   // Use real data or fallback to mock data
-  const analytics = analyticsData?.data || {
+  const analytics = dashboardData?.data?.analytics || {
     totalViews: 0,
     totalLikes: 0,
     totalRevenue: 0,
     growthRate: 0
   }
+
+  const recentActivity = dashboardData?.data?.recentActivity || []
 
   const myPrompts = userPromptsData?.data?.prompts || [
     {
@@ -84,6 +94,41 @@ const Dashboard = () => {
       isPaid: false,
       price: ""
     })
+  }
+
+  const handleEditPrompt = (prompt: any) => {
+    setEditingPrompt(prompt)
+    setPromptForm({
+      title: prompt.title,
+      description: prompt.description,
+      content: prompt.content,
+      category: prompt.category,
+      tags: prompt.tags?.join(', ') || '',
+      isPaid: prompt.isPaid,
+      price: prompt.price?.toString() || ''
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleUpdatePrompt = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPrompt) return
+
+    updatePromptMutation.mutate({
+      id: editingPrompt._id,
+      data: {
+        ...promptForm,
+        tags: promptForm.tags
+      }
+    })
+    setIsEditModalOpen(false)
+    setEditingPrompt(null)
+  }
+
+  const handleDeletePrompt = (promptId: string) => {
+    if (window.confirm('Are you sure you want to delete this prompt?')) {
+      deletePromptMutation.mutate(promptId)
+    }
   }
 
   // Show loading state
@@ -201,30 +246,37 @@ const Dashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Your latest prompt performance</CardDescription>
+              <CardDescription>Prompts you've tried in the playground</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {myPrompts.slice(0, 3).map((prompt) => (
-                  <div key={prompt.id} className="flex items-center justify-between p-4 border rounded-xl">
-                    <div>
-                      <h4 className="font-medium">{prompt.title}</h4>
-                      <p className="text-sm text-muted-foreground">{prompt.category}</p>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm">
-                      <div className="flex items-center">
-                        <Eye className="w-4 h-4 mr-1" />
-                        {prompt.views}
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((activity: any) => (
+                    <div key={activity.id} className="flex items-center justify-between p-4 border rounded-xl">
+                      <div>
+                        <h4 className="font-medium">{activity.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Used {new Date(activity.usedAt).toLocaleDateString()}
+                        </p>
                       </div>
-                      <div className="flex items-center">
-                        <Heart className="w-4 h-4 mr-1" />
-                        {prompt.likes}
+                      <div className="flex items-center space-x-4 text-sm">
+                        <div className="flex items-center">
+                          <Eye className="w-4 h-4 mr-1" />
+                          {activity.views}
+                        </div>
+                        <div className="flex items-center">
+                          <Heart className="w-4 h-4 mr-1" />
+                          {activity.likes}
+                        </div>
                       </div>
-                      <Badge variant={prompt.status === "Published" ? "default" : "secondary"}>
-                        {prompt.status}
-                      </Badge>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No recent playground activity</p>
+                    <p className="text-sm">Try some prompts in the playground to see them here!</p>
                   </div>
+                )}
                 ))}
               </div>
             </CardContent>
@@ -390,9 +442,21 @@ const Dashboard = () => {
                     </div>
                     
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">Edit</Button>
-                      <Button variant="outline" size="sm">Analytics</Button>
-                      <Button variant="outline" size="sm">Delete</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditPrompt(prompt)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeletePrompt(prompt._id || prompt.id)}
+                        disabled={deletePromptMutation.isPending}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -403,63 +467,208 @@ const Dashboard = () => {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Overview</CardTitle>
-                <CardDescription>Your prompts' performance metrics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Total Impressions</span>
-                    <span className="font-semibold">45,231</span>
+          {myPrompts.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Overview</CardTitle>
+                  <CardDescription>Analytics for your created prompts only</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>Total Views</span>
+                      <span className="font-semibold">{analytics.totalViews.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Total Likes</span>
+                      <span className="font-semibold">{analytics.totalLikes.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Published Prompts</span>
+                      <span className="font-semibold">{analytics.publishedPrompts}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Growth Rate</span>
+                      <span className="font-semibold text-green-600">+{analytics.growthRate}%</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Click-through Rate</span>
-                    <span className="font-semibold">12.4%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Conversion Rate</span>
-                    <span className="font-semibold">3.2%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Average Rating</span>
-                    <span className="font-semibold">4.7/5.0</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue Analytics</CardTitle>
-                <CardDescription>Track your earnings and growth</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>This Month</span>
-                    <span className="font-semibold">$456.78</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Last Month</span>
-                    <span className="font-semibold">$321.45</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Growth</span>
-                    <span className="font-semibold text-green-600">+42.1%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Total Earnings</span>
-                    <span className="font-semibold">${analytics.totalRevenue.toLocaleString()}</span>
-                  </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Analytics</CardTitle>
+                  <CardDescription>Earnings from your prompts</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>Total Revenue</span>
+                      <span className="font-semibold">${analytics.totalRevenue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Paid Prompts</span>
+                      <span className="font-semibold">{myPrompts.filter(p => p.isPaid).length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Free Prompts</span>
+                      <span className="font-semibold">{myPrompts.filter(p => !p.isPaid).length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Average Revenue</span>
+                      <span className="font-semibold">
+                        ${myPrompts.length > 0 ? (analytics.totalRevenue / myPrompts.length).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>No Analytics Available</CardTitle>
+                <CardDescription>Create some prompts to see analytics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg mb-2">No prompts created yet</p>
+                  <p>Upload your first prompt to start tracking analytics!</p>
+                  <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Total Views</p>
+                      <p className="font-semibold text-2xl">0</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Total Likes</p>
+                      <p className="font-semibold text-2xl">0</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Total Revenue</p>
+                      <p className="font-semibold text-2xl">$0.00</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Published Prompts</p>
+                      <p className="font-semibold text-2xl">0</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Prompt Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Prompt</DialogTitle>
+            <DialogDescription>
+              Update your prompt details
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdatePrompt} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Prompt Title *</Label>
+                <Input
+                  id="edit-title"
+                  placeholder="Enter a catchy title"
+                  value={promptForm.title}
+                  onChange={(e) => setPromptForm({...promptForm, title: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category *</Label>
+                <Select value={promptForm.category} onValueChange={(value) => setPromptForm({...promptForm, category: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="writing">Writing</SelectItem>
+                    <SelectItem value="development">Development</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="education">Education</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="analytics">Analytics</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description *</Label>
+              <Textarea
+                id="edit-description"
+                placeholder="Describe what your prompt does"
+                value={promptForm.description}
+                onChange={(e) => setPromptForm({...promptForm, description: e.target.value})}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-content">Prompt Content *</Label>
+              <Textarea
+                id="edit-content"
+                placeholder="Enter your prompt here..."
+                value={promptForm.content}
+                onChange={(e) => setPromptForm({...promptForm, content: e.target.value})}
+                className="min-h-[120px]"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-tags">Tags</Label>
+              <Input
+                id="edit-tags"
+                placeholder="Enter tags separated by commas"
+                value={promptForm.tags}
+                onChange={(e) => setPromptForm({...promptForm, tags: e.target.value})}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-isPaid"
+                checked={promptForm.isPaid}
+                onCheckedChange={(checked) => setPromptForm({...promptForm, isPaid: !!checked})}
+              />
+              <Label htmlFor="edit-isPaid">This is a paid prompt</Label>
+            </div>
+
+            {promptForm.isPaid && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-price">Price ($)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={promptForm.price}
+                  onChange={(e) => setPromptForm({...promptForm, price: e.target.value})}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updatePromptMutation.isPending}>
+                {updatePromptMutation.isPending ? 'Updating...' : 'Update Prompt'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

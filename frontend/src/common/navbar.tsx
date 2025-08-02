@@ -14,13 +14,28 @@ export function Navbar() {
 
   const isActive = (path: string) => location.pathname === path
 
-  const navItems = [
-    { name: "Home", path: "/" },
-    { name: "Marketplace", path: "/marketplace" },
-    { name: "Playground", path: "/playground" },
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "Pricing", path: "/pricing" },
-  ]
+  // Navigation items based on authentication status
+  const getNavItems = () => {
+    if (isAuthenticated) {
+      return [
+        { name: "Home", path: "/" },
+        { name: "Marketplace", path: "/marketplace" },
+        { name: "Playground", path: "/playground" },
+        { name: "Dashboard", path: "/dashboard" },
+        { name: "Pricing", path: "/pricing" },
+      ]
+    } else {
+      return [
+        { name: "Home", path: "/" },
+        { name: "Marketplace", path: "/marketplace" },
+        { name: "Features", path: "/features" },
+        { name: "About", path: "/about" },
+        { name: "Pricing", path: "/pricing" },
+      ]
+    }
+  }
+
+  const navItems = getNavItems()
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">

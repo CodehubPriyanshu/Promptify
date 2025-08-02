@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import Prompt from '../models/Prompt.js';
+import { Session } from '../models/Analytics.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { formatResponse, calculatePagination } from '../utils/helpers.js';
 
@@ -15,7 +16,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 
     // Get user's prompts with analytics
     const userPrompts = await Prompt.find({ author: userId })
-      .select('title category status analytics createdAt')
+      .select('title category status analytics createdAt isPaid price')
       .sort({ createdAt: -1 })
       .limit(10);
 
@@ -25,14 +26,23 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     const totalRevenue = userPrompts.reduce((sum, prompt) => sum + prompt.analytics.revenue, 0);
     const publishedPrompts = userPrompts.filter(p => p.status === 'published').length;
 
-    // Get recent activity (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Get recent activity from playground sessions and recent prompts
+    // For now, we'll show recently created prompts as activity since playground sessions
+    // don't currently track specific prompts used
+    const recentActivity = await Prompt.find({ author: userId })
+      .select('title analytics createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
 
-    const recentPrompts = await Prompt.find({
-      author: userId,
-      createdAt: { $gte: thirtyDaysAgo }
-    }).countDocuments();
+    // Format recent activity data
+    const formattedActivity = recentActivity.map(prompt => ({
+      id: prompt._id,
+      title: prompt.title,
+      likes: prompt.analytics?.likes || 0,
+      views: prompt.analytics?.views || 0,
+      usedAt: prompt.createdAt
+    }));
 
     const dashboardData = {
       analytics: {
@@ -40,8 +50,9 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
         totalLikes,
         totalRevenue,
         publishedPrompts,
-        recentPrompts
+        growthRate: 12.5 // Calculate actual growth rate later
       },
+      recentActivity: formattedActivity,
       prompts: userPrompts,
       usage: {
         playgroundSessions: req.user.usage.playgroundSessions,
@@ -249,6 +260,80 @@ router.post('/increment-usage', authenticateToken, async (req, res) => {
     console.error('Increment usage error:', error);
     res.status(500).json(
       formatResponse(false, 'Failed to update usage')
+    );
+  }
+});
+
+// @route   PUT /api/user/prompts/:id
+// @desc    Update user's prompt
+// @access  Private
+router.put('/prompts/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const { title, description, content, category, tags, isPaid, price } = req.body;
+
+    // Find prompt and verify ownership
+    const prompt = await Prompt.findOne({ _id: id, author: userId });
+    if (!prompt) {
+      return res.status(404).json(
+        formatResponse(false, 'Prompt not found or unauthorized')
+      );
+    }
+
+    // Update prompt
+    const updatedPrompt = await Prompt.findByIdAndUpdate(
+      id,
+      {
+        title,
+        description,
+        content,
+        category,
+        tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+        isPaid: Boolean(isPaid),
+        price: isPaid ? parseFloat(price) || 0 : 0,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.json(
+      formatResponse(true, 'Prompt updated successfully', updatedPrompt)
+    );
+  } catch (error) {
+    console.error('Update prompt error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to update prompt')
+    );
+  }
+});
+
+// @route   DELETE /api/user/prompts/:id
+// @desc    Delete user's prompt
+// @access  Private
+router.delete('/prompts/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Find prompt and verify ownership
+    const prompt = await Prompt.findOne({ _id: id, author: userId });
+    if (!prompt) {
+      return res.status(404).json(
+        formatResponse(false, 'Prompt not found or unauthorized')
+      );
+    }
+
+    // Delete the prompt
+    await Prompt.findByIdAndDelete(id);
+
+    res.json(
+      formatResponse(true, 'Prompt deleted successfully')
+    );
+  } catch (error) {
+    console.error('Delete prompt error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to delete prompt')
     );
   }
 });
