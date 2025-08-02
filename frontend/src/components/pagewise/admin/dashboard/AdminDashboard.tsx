@@ -3,16 +3,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  FileText, 
-  DollarSign, 
-  TrendingUp, 
-  Eye, 
+import {
+  Users,
+  FileText,
+  DollarSign,
+  TrendingUp,
+  Eye,
   Download,
   Star,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  UserPlus,
+  CreditCard
 } from 'lucide-react';
+import { useAdminDashboard, useAdminRecentActivity } from '@/hooks/useApi';
 
 interface DashboardStats {
   users: {
@@ -39,49 +43,24 @@ interface DashboardStats {
 }
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Use React Query hook for real-time data
+  const {
+    data: dashboardData,
+    isLoading,
+    error,
+    refetch
+  } = useAdminDashboard();
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // Get recent activity data
+  const {
+    data: recentActivityData,
+    isLoading: isLoadingActivity
+  } = useAdminRecentActivity(10);
 
-  const fetchDashboardData = async () => {
-    try {
-      // Mock data for now - replace with actual API call
-      const mockStats: DashboardStats = {
-        users: {
-          total: 1247,
-          new: 89,
-          premium: 156,
-          growth: 12.5
-        },
-        prompts: {
-          total: 3456,
-          published: 2890,
-          pending: 45,
-          new: 234
-        },
-        revenue: {
-          total: 45670,
-          previous: 38920,
-          growth: 17.3
-        },
-        analytics: {
-          totalViews: 125430,
-          totalDownloads: 23456
-        }
-      };
+  const stats = dashboardData?.data;
+  const recentActivities = recentActivityData?.data || [];
 
-      setStats(mockStats);
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -89,14 +68,17 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!stats) {
+  if (error || !stats) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold">Failed to load dashboard</h3>
-          <p className="text-muted-foreground">Please try refreshing the page</p>
-          <Button onClick={fetchDashboardData} className="mt-4">
+          <p className="text-muted-foreground">
+            {error?.message || 'Please try refreshing the page'}
+          </p>
+          <Button onClick={() => refetch()} className="mt-4">
+            <RefreshCw className="w-4 h-4 mr-2" />
             Retry
           </Button>
         </div>
@@ -113,7 +95,8 @@ const AdminDashboard = () => {
             Overview of your Promptify platform
           </p>
         </div>
-        <Button onClick={fetchDashboardData}>
+        <Button onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
       </div>
@@ -198,26 +181,76 @@ const AdminDashboard = () => {
                 <CardDescription>Latest platform activity</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Eye className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm">Total Views</span>
+                {isLoadingActivity ? (
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-4 bg-muted rounded animate-pulse" />
+                          <div className="h-3 bg-muted rounded w-2/3 animate-pulse" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <Badge variant="secondary">{stats.analytics.totalViews.toLocaleString()}</Badge>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Download className="h-4 w-4 text-green-500" />
-                    <span className="text-sm">Total Downloads</span>
+                ) : recentActivities.length > 0 ? (
+                  <div className="space-y-4 max-h-64 overflow-y-auto">
+                    {recentActivities.map((activity: any) => {
+                      const getIcon = () => {
+                        switch (activity.icon) {
+                          case 'user-plus':
+                            return <UserPlus className="h-4 w-4 text-blue-500" />;
+                          case 'file-text':
+                            return <FileText className="h-4 w-4 text-green-500" />;
+                          case 'credit-card':
+                            return <CreditCard className="h-4 w-4 text-purple-500" />;
+                          default:
+                            return <Eye className="h-4 w-4 text-gray-500" />;
+                        }
+                      };
+
+                      return (
+                        <div key={activity.id} className="flex items-start space-x-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                            {getIcon()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">
+                              {activity.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {activity.description}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(activity.timestamp).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <Badge variant="secondary">{stats.analytics.totalDownloads.toLocaleString()}</Badge>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-purple-500" />
-                    <span className="text-sm">New Users (30d)</span>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No recent activity found
                   </div>
-                  <Badge variant="secondary">{stats.users.new}</Badge>
+                )}
+
+                {/* Summary Stats */}
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center space-x-2">
+                      <Eye className="h-4 w-4 text-blue-500" />
+                      <span>Total Views</span>
+                    </span>
+                    <Badge variant="secondary">{stats.analytics.totalViews.toLocaleString()}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center space-x-2">
+                      <Download className="h-4 w-4 text-green-500" />
+                      <span>Total Downloads</span>
+                    </span>
+                    <Badge variant="secondary">{stats.analytics.totalDownloads.toLocaleString()}</Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>

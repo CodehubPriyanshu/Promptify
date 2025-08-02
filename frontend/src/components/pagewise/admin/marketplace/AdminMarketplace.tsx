@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminPrompts, useUpdatePromptStatus, useUpdatePromptDetails } from '@/hooks/useApi';
 import {
   Search,
   Filter,
@@ -25,7 +26,9 @@ import {
   Heart,
   DollarSign,
   Users,
-  BarChart3
+  BarChart3,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
 interface Prompt {
@@ -53,8 +56,6 @@ interface Prompt {
 
 const AdminMarketplace = () => {
   const { toast } = useToast();
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -76,58 +77,72 @@ const AdminMarketplace = () => {
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
 
-  useEffect(() => {
-    fetchPrompts();
-  }, []);
-
-  const fetchPrompts = async () => {
-    try {
-      // Mock data for now - replace with actual API call
-      const mockPrompts: Prompt[] = [
-        {
-          id: '1',
-          title: 'Creative Writing Assistant',
-          description: 'A comprehensive prompt for creative writing assistance',
-          author: { name: 'John Doe', email: 'john@example.com' },
-          category: 'writing',
-          type: 'premium',
-          price: 9.99,
-          status: 'published',
-          analytics: { views: 1250, downloads: 89, likes: 156, revenue: 890.11 },
-          createdAt: '2024-01-15',
-          featured: true,
-          trending: false
-        },
-        {
-          id: '2',
-          title: 'Code Review Helper',
-          description: 'AI prompt for comprehensive code reviews',
-          author: { name: 'Jane Smith', email: 'jane@example.com' },
-          category: 'development',
-          type: 'free',
-          price: 0,
-          status: 'draft',
-          analytics: { views: 45, downloads: 12, likes: 8, revenue: 0 },
-          createdAt: '2024-01-20',
-          featured: false,
-          trending: true
-        }
-      ];
-
-      setPrompts(mockPrompts);
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch prompts:', error);
-      setLoading(false);
-    }
+  // Build query parameters for API
+  const queryParams = {
+    search: searchTerm || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    category: categoryFilter !== 'all' ? categoryFilter : undefined,
+    type: typeFilter !== 'all' ? typeFilter : undefined,
+    page: 1,
+    limit: 50
   };
 
-  const handleStatusUpdate = async (promptId: string, newStatus: string) => {
+  // Use React Query for real-time data
+  const {
+    data: promptsData,
+    isLoading,
+    error,
+    refetch
+  } = useAdminPrompts(queryParams);
+
+  const updatePromptStatusMutation = useUpdatePromptStatus();
+  const updatePromptDetailsMutation = useUpdatePromptDetails();
+
+  const prompts = promptsData?.data?.prompts || [];
+  const loading = isLoading;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <RefreshCw className="h-6 w-6 animate-spin" />
+          <span>Loading prompts...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <div>
+            <h3 className="text-lg font-semibold">Failed to load prompts</h3>
+            <p className="text-muted-foreground">
+              {error instanceof Error ? error.message : 'An unexpected error occurred'}
+            </p>
+          </div>
+          <Button onClick={() => refetch()} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  const handleStatusUpdate = async (promptId: string, newStatus: string, notes?: string) => {
     try {
-      // API call to update prompt status
-      setPrompts(prev => prev.map(prompt =>
-        prompt.id === promptId ? { ...prompt, status: newStatus as any } : prompt
-      ));
+      await updatePromptStatusMutation.mutateAsync({
+        promptId,
+        status: newStatus,
+        notes
+      });
       toast({
         title: "Status Updated",
         description: `Prompt status changed to ${newStatus}`,
@@ -142,11 +157,12 @@ const AdminMarketplace = () => {
     }
   };
 
-  const handleFeatureToggle = async (promptId: string) => {
+  const handleFeatureToggle = async (promptId: string, currentFeatured: boolean) => {
     try {
-      setPrompts(prev => prev.map(prompt =>
-        prompt.id === promptId ? { ...prompt, featured: !prompt.featured } : prompt
-      ));
+      await updatePromptDetailsMutation.mutateAsync({
+        promptId,
+        updates: { featured: !currentFeatured }
+      });
       toast({
         title: "Featured Status Updated",
         description: "Prompt featured status has been toggled",
@@ -161,11 +177,12 @@ const AdminMarketplace = () => {
     }
   };
 
-  const handleTrendingToggle = async (promptId: string) => {
+  const handleTrendingToggle = async (promptId: string, currentTrending: boolean) => {
     try {
-      setPrompts(prev => prev.map(prompt =>
-        prompt.id === promptId ? { ...prompt, trending: !prompt.trending } : prompt
-      ));
+      await updatePromptDetailsMutation.mutateAsync({
+        promptId,
+        updates: { trending: !currentTrending }
+      });
       toast({
         title: "Trending Status Updated",
         description: "Prompt trending status has been toggled",
@@ -316,6 +333,24 @@ const AdminMarketplace = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold">Failed to load prompts</h3>
+          <p className="text-muted-foreground mb-4">
+            {error?.message || 'Please try refreshing the page'}
+          </p>
+          <Button onClick={() => refetch()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -325,10 +360,16 @@ const AdminMarketplace = () => {
             Manage prompts, reviews, and marketplace content
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Prompt
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => refetch()} disabled={isLoading} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Prompt
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -534,7 +575,7 @@ const AdminMarketplace = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleFeatureToggle(prompt.id)}
+                        onClick={() => handleFeatureToggle(prompt.id, prompt.featured)}
                         title="Toggle featured"
                       >
                         <Star className={`h-4 w-4 ${prompt.featured ? 'fill-current text-yellow-500' : ''}`} />
@@ -542,7 +583,7 @@ const AdminMarketplace = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleTrendingToggle(prompt.id)}
+                        onClick={() => handleTrendingToggle(prompt.id, prompt.trending)}
                         title="Toggle trending"
                       >
                         <TrendingUp className={`h-4 w-4 ${prompt.trending ? 'text-green-500' : ''}`} />

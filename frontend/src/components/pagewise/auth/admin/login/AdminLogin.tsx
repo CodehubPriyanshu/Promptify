@@ -91,7 +91,7 @@ const AdminLogin = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  disabled={loading}
+                  disabled={isLoading}
                 />
               </div>
 

@@ -231,7 +231,7 @@ const subscriptionSchema = new mongoose.Schema({
 });
 
 subscriptionSchema.index({ user: 1 });
-subscriptionSchema.index({ razorpaySubscriptionId: 1 });
+// razorpaySubscriptionId already indexed via unique: true
 subscriptionSchema.index({ status: 1 });
 
 export const Subscription = mongoose.model('Subscription', subscriptionSchema);

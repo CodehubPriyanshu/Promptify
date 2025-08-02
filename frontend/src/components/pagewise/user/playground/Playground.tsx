@@ -1,13 +1,24 @@
 import { useState, useEffect } from "react"
-import { Send, Bot, User, Save, History, Crown, AlertCircle } from "lucide-react"
+import { Send, Bot, User, Save, History, Crown, AlertCircle, Zap, Brain, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/contexts/AuthContext"
 import { useSendPlaygroundMessage, usePlaygroundSessions } from "@/hooks/useApi"
+
+type AIModel = 'claude' | 'chatgpt' | 'perplexity'
+
+interface AIModelConfig {
+  id: AIModel
+  name: string
+  description: string
+  icon: React.ReactNode
+  color: string
+}
 
 interface Message {
   id: number
@@ -18,26 +29,38 @@ interface Message {
 
 const Playground = () => {
   const { user } = useAuth()
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      type: "ai",
-      content: "Welcome to the Promptify Playground! I'm your AI assistant ready to help you test and refine your prompts. What would you like to explore today?",
-      timestamp: new Date()
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<AIModel>('claude')
 
   const sendMessageMutation = useSendPlaygroundMessage()
   const { data: sessionsData } = usePlaygroundSessions()
 
-  // Mock saved prompts
-  const savedPrompts = [
-    { id: 1, title: "Creative Writing Assistant", category: "Writing" },
-    { id: 2, title: "Marketing Copy Generator", category: "Marketing" },
-    { id: 3, title: "Language Learning Tutor", category: "Education" }
+  // AI Model configurations
+  const aiModels: AIModelConfig[] = [
+    {
+      id: 'claude',
+      name: 'Claude',
+      description: 'Best for coding and technical tasks',
+      icon: <Bot className="w-5 h-5" />,
+      color: 'bg-orange-500'
+    },
+    {
+      id: 'chatgpt',
+      name: 'ChatGPT',
+      description: 'Great for general conversations',
+      icon: <Zap className="w-5 h-5" />,
+      color: 'bg-green-500'
+    },
+    {
+      id: 'perplexity',
+      name: 'Perplexity',
+      description: 'Perfect for research and analysis',
+      icon: <Search className="w-5 h-5" />,
+      color: 'bg-blue-500'
+    }
   ]
 
   // Check if user can use playground
@@ -73,7 +96,8 @@ const Playground = () => {
     try {
       const response = await sendMessageMutation.mutateAsync({
         message: messageToSend,
-        sessionId: currentSessionId || undefined
+        sessionId: currentSessionId || undefined,
+        model: selectedModel
       })
 
       if (response.success && response.data) {
@@ -147,29 +171,56 @@ const Playground = () => {
           </Card>
         </div>
 
-        {/* Saved Prompts */}
+        {/* AI Model Selector */}
         <div className="flex-1 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Saved Prompts</h3>
-            <Button variant="ghost" size="icon">
-              <Save className="w-4 h-4" />
-            </Button>
+          <div className="mb-4">
+            <h3 className="font-semibold text-lg mb-2">AI Model</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose your AI assistant for this conversation
+            </p>
           </div>
-          
-          <ScrollArea className="h-full">
-            <div className="space-y-2">
-              {savedPrompts.map((prompt) => (
-                <Card key={prompt.id} className="p-3 cursor-pointer hover:bg-accent transition-colors">
-                  <div className="space-y-1">
-                    <h4 className="font-medium text-sm line-clamp-1">{prompt.title}</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {prompt.category}
-                    </Badge>
+
+          <div className="space-y-3">
+            {aiModels.map((model) => (
+              <Card
+                key={model.id}
+                className={`p-3 cursor-pointer transition-all duration-200 border-2 ${
+                  selectedModel === model.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => setSelectedModel(model.id)}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className={`p-2 rounded-lg text-white ${model.color}`}>
+                    {model.icon}
                   </div>
-                </Card>
-              ))}
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm">{model.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {model.description}
+                    </p>
+                  </div>
+                  {selectedModel === model.id && (
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Session History */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Recent Sessions</h3>
+              <Button variant="ghost" size="icon">
+                <History className="w-4 h-4" />
+              </Button>
             </div>
-          </ScrollArea>
+            <div className="text-sm text-muted-foreground">
+              No recent sessions
+            </div>
+          </div>
         </div>
       </div>
 

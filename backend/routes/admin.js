@@ -485,4 +485,112 @@ router.get('/payments', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/recent-activity
+// @desc    Get recent platform activity
+// @access  Admin
+router.get('/recent-activity', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const limitNum = Math.min(parseInt(limit), 50); // Max 50 items
+
+    // Get recent activities from different collections
+    const [recentUsers, recentPrompts, recentPayments] = await Promise.all([
+      // Recent user registrations
+      User.find()
+        .select('name email createdAt subscription.plan')
+        .sort({ createdAt: -1 })
+        .limit(Math.ceil(limitNum / 3)),
+
+      // Recent prompt submissions
+      Prompt.find()
+        .populate('author', 'name')
+        .select('title author createdAt status category')
+        .sort({ createdAt: -1 })
+        .limit(Math.ceil(limitNum / 3)),
+
+      // Recent payments/upgrades
+      Payment.find({ status: 'completed' })
+        .populate('user', 'name email')
+        .populate('plan', 'name')
+        .select('user plan amount createdAt')
+        .sort({ createdAt: -1 })
+        .limit(Math.ceil(limitNum / 3))
+    ]);
+
+    // Combine and format activities
+    const activities = [];
+
+    // Add user registrations
+    recentUsers.forEach(user => {
+      activities.push({
+        id: user._id,
+        type: 'user_registration',
+        title: 'New User Registration',
+        description: `${user.name} joined the platform`,
+        user: {
+          name: user.name,
+          email: user.email,
+          plan: user.subscription?.plan || 'Free'
+        },
+        timestamp: user.createdAt,
+        icon: 'user-plus'
+      });
+    });
+
+    // Add prompt submissions
+    recentPrompts.forEach(prompt => {
+      activities.push({
+        id: prompt._id,
+        type: 'prompt_submission',
+        title: 'New Prompt Submitted',
+        description: `"${prompt.title}" by ${prompt.author?.name || 'Unknown'}`,
+        prompt: {
+          title: prompt.title,
+          category: prompt.category,
+          status: prompt.status
+        },
+        user: {
+          name: prompt.author?.name || 'Unknown'
+        },
+        timestamp: prompt.createdAt,
+        icon: 'file-text'
+      });
+    });
+
+    // Add plan upgrades
+    recentPayments.forEach(payment => {
+      activities.push({
+        id: payment._id,
+        type: 'plan_upgrade',
+        title: 'Plan Upgrade',
+        description: `${payment.user?.name || 'User'} upgraded to ${payment.plan?.name || 'Premium'}`,
+        user: {
+          name: payment.user?.name || 'Unknown',
+          email: payment.user?.email
+        },
+        payment: {
+          plan: payment.plan?.name || 'Premium',
+          amount: payment.amount
+        },
+        timestamp: payment.createdAt,
+        icon: 'credit-card'
+      });
+    });
+
+    // Sort by timestamp and limit
+    const sortedActivities = activities
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limitNum);
+
+    res.json(
+      formatResponse(true, 'Recent activity retrieved successfully', sortedActivities)
+    );
+  } catch (error) {
+    console.error('Get recent activity error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get recent activity')
+    );
+  }
+});
+
 export default router;

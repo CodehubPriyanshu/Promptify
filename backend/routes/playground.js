@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import { Session } from '../models/Analytics.js';
 import { authenticateToken } from '../middlewares/auth.js';
 import { formatResponse, generateRandomString } from '../utils/helpers.js';
-import catGPTService from '../services/catgpt.js';
+import aiManager from '../services/aiManager.js';
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ const router = express.Router();
 // @access  Private
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, model = 'claude' } = req.body;
     const userId = req.user._id;
 
     if (!message || !message.trim()) {
@@ -35,25 +35,32 @@ router.post('/chat', authenticateToken, async (req, res) => {
       await user.incrementPlaygroundUsage();
     }
 
-    // Use CatGPT service for AI response
+    // Use AI Manager for AI response
     let aiResponse;
 
     try {
-      // Get AI response from CatGPT service
-      const catGptResponse = await catGPTService.sendMessage(message, {
+      // Get AI response from selected model
+      const aiResult = await aiManager.sendMessage(message, {
+        model,
         sessionId,
         temperature: 0.7,
         maxTokens: 1000
       });
 
-      if (!catGptResponse.success) {
-        throw new Error(catGptResponse.error || 'Failed to get AI response');
+      if (!aiResult.success) {
+        throw new Error(aiResult.error || 'Failed to get AI response');
       }
 
-      aiResponse = catGptResponse.response;
+      aiResponse = {
+        response: aiResult.response,
+        sessionId: aiResult.sessionId,
+        usage: aiResult.usage,
+        model: aiResult.model,
+        aiModel: aiResult.aiModel
+      };
 
       // Update session ID if this is a new session
-      const finalSessionId = catGptResponse.sessionId || sessionId;
+      const finalSessionId = aiResult.sessionId || sessionId;
     } catch (apiError) {
       console.error('AI API error:', apiError);
       aiResponse = "I apologize, but I'm having trouble connecting to the AI service right now. Please try again in a moment.";
@@ -71,7 +78,8 @@ router.post('/chat', authenticateToken, async (req, res) => {
               timestamp: new Date(),
               data: {
                 message: message.substring(0, 100), // Store first 100 chars for reference
-                responseLength: aiResponse.length
+                responseLength: aiResponse.response ? aiResponse.response.length : 0,
+                model: aiResponse.aiModel || 'unknown'
               }
             }
           },
@@ -266,5 +274,35 @@ async function generateMockAIResponse(message) {
 
   return responses[Math.floor(Math.random() * responses.length)];
 }
+
+// @route   GET /api/playground/models
+// @desc    Get available AI models
+// @access  Private
+router.get('/models', authenticateToken, async (req, res) => {
+  try {
+    const models = await aiManager.getAvailableModels();
+    res.json(formatResponse(true, 'Models retrieved successfully', models));
+  } catch (error) {
+    console.error('Get models error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get available models')
+    );
+  }
+});
+
+// @route   GET /api/playground/health
+// @desc    Get AI services health status
+// @access  Private
+router.get('/health', authenticateToken, async (req, res) => {
+  try {
+    const health = await aiManager.healthCheck();
+    res.json(formatResponse(true, 'Health check completed', health));
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Health check failed')
+    );
+  }
+});
 
 export default router;

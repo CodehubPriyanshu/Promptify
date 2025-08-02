@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
@@ -13,10 +15,12 @@ import {
   Settings,
   Menu,
   LogOut,
-  Bell,
   TrendingUp,
   Home,
-  ExternalLink
+  ExternalLink,
+  Search,
+  User,
+  ChevronDown
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -25,8 +29,10 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
-  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const navigation = [
     {
@@ -74,26 +80,31 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     }
   ];
 
-  const mainAppNavigation = [
-    {
-      name: 'Main App',
-      href: '/',
-      icon: Home,
-      current: false
-    },
-    {
-      name: 'User Dashboard',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      current: false
-    },
-    {
-      name: 'Marketplace',
-      href: '/marketplace',
-      icon: Store,
-      current: false
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    // Smart search redirection based on query
+    const query = searchQuery.toLowerCase().trim();
+
+    // Check for specific keywords and redirect accordingly
+    if (query.includes('user') || query.includes('member') || query.includes('customer')) {
+      navigate('/admin/users');
+    } else if (query.includes('prompt') || query.includes('marketplace') || query.includes('template')) {
+      navigate('/admin/marketplace');
+    } else if (query.includes('plan') || query.includes('subscription') || query.includes('pricing')) {
+      navigate('/admin/plans');
+    } else if (query.includes('dashboard') || query.includes('analytics') || query.includes('stats')) {
+      navigate('/admin/dashboard');
+    } else if (query.includes('setting') || query.includes('config') || query.includes('preference')) {
+      navigate('/admin/settings');
+    } else {
+      // Default to marketplace search with query parameter
+      navigate(`/admin/marketplace?search=${encodeURIComponent(searchQuery)}`);
     }
-  ];
+
+    setSearchQuery('');
+  };
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
@@ -137,30 +148,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </Link>
           );
         })}
-
-        {/* Main App Navigation */}
-        <div className="border-t pt-4 mt-4">
-          <div className="px-3 mb-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Main App
-            </h3>
-          </div>
-          {mainAppNavigation.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className="group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                onClick={() => setIsSidebarOpen(false)}
-              >
-                <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                <span className="flex-1">{item.name}</span>
-                <ExternalLink className="ml-auto h-4 w-4" />
-              </Link>
-            );
-          })}
-        </div>
       </nav>
 
       {/* User Menu */}
@@ -204,27 +191,60 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Bar */}
-        <header className="flex h-16 items-center border-b bg-background px-6">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="lg:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-          </Sheet>
+        <header className="flex h-16 items-center border-b bg-background px-6 gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md">
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search users, prompts, plans..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4"
+              />
+            </form>
+          </div>
 
           <div className="flex-1" />
 
-          {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-            >
-              3
-            </Badge>
-          </Button>
+          {/* Profile Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground text-sm font-medium">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'A'}
+                  </span>
+                </div>
+                <div className="hidden md:block text-left">
+                  <div className="text-sm font-medium">{user?.name || 'Admin User'}</div>
+                  <div className="text-xs text-muted-foreground">{user?.email || 'admin@promptify.com'}</div>
+                </div>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => navigate('/admin/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         {/* Page Content */}

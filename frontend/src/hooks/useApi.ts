@@ -25,6 +25,7 @@ export const queryKeys = {
   adminDashboard: ['admin', 'dashboard'],
   adminUsers: (params: any) => ['admin', 'users', params],
   adminPrompts: (params: any) => ['admin', 'prompts', params],
+  adminRecentActivity: (limit?: number) => ['admin', 'recent-activity', limit],
   
   // Payment
   subscriptionPlans: ['payment', 'plans'],
@@ -123,12 +124,14 @@ export const useDeletePrompt = () => {
 };
 
 // Marketplace hooks
-export const useMarketplacePrompts = (params: any = {}) => {
+export const useMarketplacePrompts = (params: any = {}, enableRealTime = false) => {
   return useQuery({
     queryKey: queryKeys.marketplacePrompts(params),
     queryFn: () => apiService.getMarketplacePrompts(params),
     ...defaultQueryOptions,
     staleTime: 2 * 60 * 1000, // 2 minutes (override default)
+    refetchInterval: enableRealTime ? 30 * 1000 : false, // Poll every 30 seconds if real-time enabled
+    refetchIntervalInBackground: enableRealTime,
   });
 };
 
@@ -206,10 +209,10 @@ export const usePlaygroundSession = (sessionId: string) => {
 
 export const useSendPlaygroundMessage = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) =>
-      apiService.sendPlaygroundMessage(message, sessionId),
+    mutationFn: ({ message, sessionId, model }: { message: string; sessionId?: string; model?: string }) =>
+      apiService.sendPlaygroundMessage(message, sessionId, model),
     onSuccess: (data, variables) => {
       // Invalidate sessions list
       queryClient.invalidateQueries({ queryKey: queryKeys.playgroundSessions });
@@ -231,6 +234,14 @@ export const useAdminDashboard = () => {
     queryKey: queryKeys.adminDashboard,
     queryFn: () => apiService.getAdminDashboard(),
     staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+};
+
+export const useAdminRecentActivity = (limit?: number) => {
+  return useQuery({
+    queryKey: queryKeys.adminRecentActivity(limit),
+    queryFn: () => apiService.getAdminRecentActivity(limit),
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 };
 
@@ -267,10 +278,27 @@ export const useAdminPrompts = (params: any = {}) => {
 
 export const useUpdatePromptStatus = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ promptId, status, notes }: { promptId: string; status: string; notes?: string }) =>
       apiService.updatePromptStatus(promptId, status, notes),
+    onSuccess: () => {
+      // Invalidate admin prompts queries
+      queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] });
+      // Invalidate marketplace prompts
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
+      // Invalidate admin dashboard
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminDashboard });
+    },
+  });
+};
+
+export const useUpdatePromptDetails = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ promptId, updates }: { promptId: string; updates: { featured?: boolean; trending?: boolean; status?: string; rejectionReason?: string } }) =>
+      apiService.updatePromptDetails(promptId, updates),
     onSuccess: () => {
       // Invalidate admin prompts queries
       queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] });

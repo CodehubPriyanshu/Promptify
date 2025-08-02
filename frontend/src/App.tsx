@@ -22,6 +22,7 @@ import AdminDashboard from "./components/pagewise/admin/dashboard/AdminDashboard
 import AdminMarketplace from "./components/pagewise/admin/marketplace/AdminMarketplace";
 import AdminUsers from "./components/pagewise/admin/users/AdminUsers";
 import AdminPlans from "./components/pagewise/admin/plans/AdminPlans";
+import AdminSettings from "./components/pagewise/admin/settings/AdminSettings";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./components/pagewise/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -80,6 +81,7 @@ const App = () => (
             <Route path="/admin/marketplace" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminMarketplace /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminUsers /></AdminLayout></ProtectedRoute>} />
             <Route path="/admin/plans" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminPlans /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute requireAdmin={true}><AdminLayout><AdminSettings /></AdminLayout></ProtectedRoute>} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<Layout><NotFound /></Layout>} />

@@ -22,8 +22,8 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     
-    // Get auth token
-    const token = localStorage.getItem('authToken');
+    // Get auth token (check both regular and admin tokens)
+    const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
     
     const config: RequestInit = {
       headers: {
@@ -172,10 +172,10 @@ class ApiService {
   }
 
   // Playground endpoints
-  async sendPlaygroundMessage(message: string, sessionId?: string) {
+  async sendPlaygroundMessage(message: string, sessionId?: string, model?: string) {
     return this.request<any>('/playground/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, sessionId }),
+      body: JSON.stringify({ message, sessionId, model }),
     });
   }
 
@@ -190,6 +190,12 @@ class ApiService {
   // Admin endpoints
   async getAdminDashboard() {
     return this.request<any>('/admin/dashboard');
+  }
+
+  async getAdminRecentActivity(limit?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    return this.request<any>(`/admin/recent-activity?${params}`);
   }
 
   async getAdminUsers(params: {
@@ -237,6 +243,13 @@ class ApiService {
     return this.request<any>(`/admin/prompts/${promptId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status, notes }),
+    });
+  }
+
+  async updatePromptDetails(promptId: string, updates: { featured?: boolean; trending?: boolean; status?: string; rejectionReason?: string }) {
+    return this.request<any>(`/admin/prompts/${promptId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
   }
 

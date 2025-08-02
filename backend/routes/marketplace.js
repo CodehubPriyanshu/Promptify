@@ -52,6 +52,15 @@ router.get('/prompts', optionalAuth, async (req, res) => {
       case 'rating':
         sortQuery = { 'analytics.rating.average': -1 };
         break;
+      case 'downloads':
+        sortQuery = { 'analytics.downloads': -1 };
+        break;
+      case 'featured':
+        sortQuery = { 'metadata.featured': -1, createdAt: -1 };
+        break;
+      case 'trending':
+        sortQuery = { 'metadata.trending': -1, createdAt: -1 };
+        break;
       case 'price_low':
         sortQuery = { price: 1 };
         break;

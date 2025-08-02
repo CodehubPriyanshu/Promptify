@@ -151,7 +151,7 @@ const sessionSchema = new mongoose.Schema({
 });
 
 sessionSchema.index({ user: 1, startTime: -1 });
-sessionSchema.index({ sessionId: 1 });
+// sessionId already indexed via unique: true
 sessionSchema.index({ type: 1, startTime: -1 });
 
 export const Session = mongoose.model('Session', sessionSchema);
