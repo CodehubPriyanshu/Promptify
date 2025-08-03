@@ -307,19 +307,122 @@ router.put('/prompts/:id', async (req, res) => {
 });
 
 // @route   GET /api/admin/plans
-// @desc    Get all subscription plans
+// @desc    Get all subscription plans with analytics
 // @access  Admin
 router.get('/plans', async (req, res) => {
   try {
     const plans = await Plan.find().sort({ 'metadata.order': 1 });
 
+    // Calculate real-time analytics for each plan
+    const plansWithAnalytics = await Promise.all(
+      plans.map(async (plan) => {
+        // Get active subscribers for this plan
+        const activeSubscribers = await User.countDocuments({
+          'subscription.plan': plan._id,
+          'subscription.status': 'active'
+        });
+
+        // Get total subscribers (including inactive)
+        const totalSubscribers = await User.countDocuments({
+          'subscription.plan': plan._id
+        });
+
+        // Get monthly revenue for this plan
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthlyRevenue = await Payment.aggregate([
+          {
+            $match: {
+              plan: plan._id,
+              status: 'completed',
+              createdAt: { $gte: startOfMonth }
+            }
+          },
+          { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+
+        // Get total revenue for this plan
+        const totalRevenue = await Payment.aggregate([
+          {
+            $match: {
+              plan: plan._id,
+              status: 'completed'
+            }
+          },
+          { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+
+        return {
+          ...plan.toObject(),
+          analytics: {
+            activeSubscribers,
+            totalSubscribers,
+            monthlyRevenue: monthlyRevenue[0]?.total || 0,
+            totalRevenue: totalRevenue[0]?.total || 0
+          }
+        };
+      })
+    );
+
     res.json(
-      formatResponse(true, 'Plans retrieved successfully', { plans })
+      formatResponse(true, 'Plans retrieved successfully', { plans: plansWithAnalytics })
     );
   } catch (error) {
     console.error('Get plans error:', error);
     res.status(500).json(
       formatResponse(false, 'Failed to get plans')
+    );
+  }
+});
+
+// @route   GET /api/admin/plans/analytics
+// @desc    Get plans analytics summary
+// @access  Admin
+router.get('/plans/analytics', async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Get total plans
+    const totalPlans = await Plan.countDocuments({ isActive: true });
+
+    // Get total active subscribers across all plans
+    const totalSubscribers = await User.countDocuments({
+      'subscription.status': 'active'
+    });
+
+    // Get total registered users for conversion rate
+    const totalUsers = await User.countDocuments();
+
+    // Get monthly revenue
+    const monthlyRevenue = await Payment.aggregate([
+      {
+        $match: {
+          status: 'completed',
+          createdAt: { $gte: startOfMonth }
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    // Calculate conversion rate
+    const conversionRate = totalUsers > 0 ? ((totalSubscribers / totalUsers) * 100).toFixed(1) : 0;
+
+    const analytics = {
+      totalPlans,
+      totalSubscribers,
+      totalUsers,
+      monthlyRevenue: monthlyRevenue[0]?.total || 0,
+      conversionRate: parseFloat(conversionRate)
+    };
+
+    res.json(
+      formatResponse(true, 'Plans analytics retrieved successfully', analytics)
+    );
+  } catch (error) {
+    console.error('Plans analytics error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get plans analytics')
     );
   }
 });

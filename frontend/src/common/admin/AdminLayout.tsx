@@ -10,17 +10,15 @@ import {
   LayoutDashboard,
   Store,
   Users,
-  FileText,
   DollarSign,
-  Settings,
   Menu,
   LogOut,
-  TrendingUp,
   Home,
   ExternalLink,
   Search,
   User,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -58,25 +56,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       href: '/admin/users',
       icon: Users,
       current: location.pathname === '/admin/users'
-    },
-    {
-      name: 'Prompts',
-      href: '/admin/prompts',
-      icon: FileText,
-      current: location.pathname === '/admin/prompts',
-      badge: '5' // Pending reviews
-    },
-    {
-      name: 'Revenue',
-      href: '/admin/revenue',
-      icon: TrendingUp,
-      current: location.pathname === '/admin/revenue'
-    },
-    {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: Settings,
-      current: location.pathname === '/admin/settings'
     }
   ];
 

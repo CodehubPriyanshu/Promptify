@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Plan from '../models/Plan.js';
 import { hashPassword, comparePassword, generateToken, formatResponse } from '../utils/helpers.js';
@@ -247,14 +248,26 @@ router.post('/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // For demo purposes, use hardcoded admin credentials
-    if (email === 'admin@promptify.com' && password === 'admin123') {
-      // Create a mock admin user
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json(
+        formatResponse(false, 'Email and password are required')
+      );
+    }
+
+    // Check admin credentials from environment variables
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@promptify.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (email.toLowerCase().trim() === adminEmail.toLowerCase() && password === adminPassword) {
+      // Create admin user object
       const adminUser = {
+        _id: 'admin-1',
         id: 'admin-1',
         name: 'Admin User',
-        email: 'admin@promptify.com',
+        email: adminEmail,
         role: 'admin',
+        isActive: true,
         subscription: {
           plan: 'Admin',
           status: 'active'
@@ -265,18 +278,21 @@ router.post('/admin/login', async (req, res) => {
             limit: 999999
           },
           promptsCreated: 0
+        },
+        analytics: {
+          lastActive: new Date()
         }
       };
 
       // Generate JWT token
       const token = jwt.sign(
         {
-          userId: adminUser.id,
+          userId: adminUser._id,
           email: adminUser.email,
           role: adminUser.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE }
+        { expiresIn: process.env.JWT_EXPIRE || '7d' }
       );
 
       res.json(
@@ -293,7 +309,111 @@ router.post('/admin/login', async (req, res) => {
   } catch (error) {
     console.error('Admin login error:', error);
     res.status(500).json(
-      formatResponse(false, 'Admin login failed')
+      formatResponse(false, 'Admin login failed', { error: error.message })
+    );
+  }
+});
+
+// @route   GET /api/auth/userInfo
+// @desc    Get current user info (works for both regular users and admin)
+// @access  Private
+router.get('/userInfo', authenticateToken, async (req, res) => {
+  try {
+    // Handle admin user
+    if (req.user.role === 'admin') {
+      const adminUser = {
+        _id: req.user.userId || req.user._id,
+        id: req.user.userId || req.user._id,
+        name: 'Admin User',
+        email: req.user.email,
+        role: 'admin',
+        isActive: true,
+        subscription: {
+          plan: 'Admin',
+          status: 'active'
+        },
+        usage: {
+          playgroundSessions: {
+            current: 0,
+            limit: 999999
+          },
+          promptsCreated: 0
+        },
+        analytics: {
+          lastActive: new Date()
+        }
+      };
+
+      return res.json(
+        formatResponse(true, 'Admin user info retrieved successfully', { user: adminUser })
+      );
+    }
+
+    // Handle regular user
+    const user = await User.findById(req.user._id)
+      .populate('plan')
+      .select('-password');
+
+    if (!user) {
+      return res.status(404).json(
+        formatResponse(false, 'User not found')
+      );
+    }
+
+    res.json(
+      formatResponse(true, 'User info retrieved successfully', { user })
+    );
+  } catch (error) {
+    console.error('Get user info error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get user info')
+    );
+  }
+});
+
+// @route   GET /api/auth/admin/userInfo
+// @desc    Get admin user info
+// @access  Private (Admin)
+router.get('/admin/userInfo', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json(
+        formatResponse(false, 'Access denied. Admin role required.')
+      );
+    }
+
+    // Return admin user info
+    const adminUser = {
+      _id: req.user.userId,
+      id: req.user.userId,
+      name: 'Admin User',
+      email: req.user.email,
+      role: 'admin',
+      isActive: true,
+      subscription: {
+        plan: 'Admin',
+        status: 'active'
+      },
+      usage: {
+        playgroundSessions: {
+          current: 0,
+          limit: 999999
+        },
+        promptsCreated: 0
+      },
+      analytics: {
+        lastActive: new Date()
+      }
+    };
+
+    res.json(
+      formatResponse(true, 'Admin user info retrieved successfully', { user: adminUser })
+    );
+  } catch (error) {
+    console.error('Get admin user info error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get admin user info')
     );
   }
 });

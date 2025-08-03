@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { createServer } from 'net';
 import connectDB from './config/database.js';
 import { globalErrorHandler, gracefulShutdown } from './middlewares/errorHandler.js';
 import logger from './utils/logger.js';
@@ -18,11 +19,53 @@ import paymentRoutes from './routes/payment.js';
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+// Validate critical environment variables
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
-// Connect to MongoDB
-connectDB();
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+  console.error('Please check your .env file and ensure all required variables are set.');
+  process.exit(1);
+}
+
+// Function to check if port is available
+const isPortAvailable = (port) => {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.listen(port, () => {
+      server.once('close', () => resolve(true));
+      server.close();
+    });
+    server.on('error', () => resolve(false));
+  });
+};
+
+// Function to find available port
+const findAvailablePort = async (startPort) => {
+  let port = startPort;
+  while (port < startPort + 100) { // Check up to 100 ports
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    port++;
+  }
+  throw new Error(`No available port found starting from ${startPort}`);
+};
+
+const app = express();
+const PREFERRED_PORT = parseInt(process.env.PORT) || 8001;
+
+// Connect to MongoDB with error handling
+connectDB()
+  .then(() => {
+    logger.info('✅ Database connection established successfully');
+  })
+  .catch((error) => {
+    logger.error('❌ Failed to connect to database:', error.message);
+    console.error('Database connection failed. Please check your MONGODB_URI and network connection.');
+    process.exit(1);
+  });
 
 // Security middleware
 app.use(helmet());
@@ -66,6 +109,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static file serving for uploads
+app.use('/uploads', express.static('uploads'));
+
 // Request logging middleware
 app.use(logger.requestLogger());
 
@@ -97,14 +143,62 @@ app.use('*', (req, res) => {
 // Global error handler (must be last middleware)
 app.use(globalErrorHandler);
 
-// Start server
-const server = app.listen(PORT, () => {
-  logger.info(`🚀 Promptify API server running on port ${PORT}`);
-  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-});
+// Start server with port conflict handling
+const startServer = async () => {
+  try {
+    let PORT = PREFERRED_PORT;
+    
+    // Check if preferred port is available
+    if (!(await isPortAvailable(PREFERRED_PORT))) {
+      console.warn(`⚠️  Port ${PREFERRED_PORT} is already in use`);
+      console.log('🔍 Searching for available port...');
+      
+      try {
+        PORT = await findAvailablePort(PREFERRED_PORT);
+        console.log(`✅ Found available port: ${PORT}`);
+        
+        if (PORT !== PREFERRED_PORT) {
+          console.log(`📝 Note: Update your frontend .env file to use: VITE_API_URL=http://localhost:${PORT}/api`);
+        }
+      } catch (error) {
+        console.error('��� Could not find available port:', error.message);
+        console.log('💡 Try killing existing Node.js processes: taskkill /F /IM node.exe');
+        process.exit(1);
+      }
+    }
 
-// Setup graceful shutdown
-gracefulShutdown(server);
+    const server = app.listen(PORT, () => {
+      logger.info(`🚀 Promptify API server running on port ${PORT}`);
+      logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+      
+      if (PORT !== PREFERRED_PORT) {
+        logger.warn(`⚠️  Using port ${PORT} instead of preferred port ${PREFERRED_PORT}`);
+      }
+    });
+
+    // Handle server startup errors
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is still in use. Trying to find another port...`);
+        startServer(); // Retry with a different port
+      } else {
+        console.error('❌ Server startup error:', error.message);
+        process.exit(1);
+      }
+    });
+
+    // Setup graceful shutdown
+    gracefulShutdown(server);
+    
+    return server;
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 export default app;

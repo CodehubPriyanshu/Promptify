@@ -15,6 +15,21 @@ export const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Handle admin tokens (hardcoded admin user)
+    if (decoded.role === 'admin' && decoded.userId === 'admin-1') {
+      req.user = {
+        _id: decoded.userId,
+        userId: decoded.userId,
+        email: decoded.email,
+        role: 'admin',
+        name: 'Admin User',
+        isActive: true
+      };
+      return next();
+    }
+
+    // Handle regular user tokens
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {

@@ -253,6 +253,35 @@ class ApiService {
     });
   }
 
+  // Admin Plans endpoints
+  async getAdminPlans() {
+    return this.request<any>('/admin/plans');
+  }
+
+  async getAdminPlansAnalytics() {
+    return this.request<any>('/admin/plans/analytics');
+  }
+
+  async createPlan(planData: any) {
+    return this.request<any>('/admin/plans', {
+      method: 'POST',
+      body: JSON.stringify(planData),
+    });
+  }
+
+  async updatePlan(planId: string, planData: any) {
+    return this.request<any>(`/admin/plans/${planId}`, {
+      method: 'PUT',
+      body: JSON.stringify(planData),
+    });
+  }
+
+  async deletePlan(planId: string) {
+    return this.request<any>(`/admin/plans/${planId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Payment endpoints
   async createPaymentOrder(planId: string) {
     return this.request<any>('/payment/create-order', {

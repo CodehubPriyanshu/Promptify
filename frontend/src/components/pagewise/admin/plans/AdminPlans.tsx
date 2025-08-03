@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { 
+import { useAdminPlans, useAdminPlansAnalytics, useCreatePlan, useUpdatePlan, useDeletePlan } from '@/hooks/useApi';
+import {
   Plus,
   Edit,
   Trash2,
@@ -19,7 +20,9 @@ import {
   Crown,
   Star,
   Zap,
-  Shield
+  Shield,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
 interface Plan {
@@ -43,12 +46,17 @@ interface Plan {
 
 const AdminPlans = () => {
   const { toast } = useToast();
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // API hooks
+  const { data: plansData, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useAdminPlans();
+  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useAdminPlansAnalytics();
+  const createPlanMutation = useCreatePlan();
+  const updatePlanMutation = useUpdatePlan();
+  const deletePlanMutation = useDeletePlan();
   const [editForm, setEditForm] = useState({
     name: '',
     description: '',
@@ -66,103 +74,19 @@ const AdminPlans = () => {
   const [newFeature, setNewFeature] = useState('');
   const [newLimitation, setNewLimitation] = useState('');
 
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
-  const fetchPlans = async () => {
-    try {
-      // Mock data for now - replace with actual API call
-      const mockPlans: Plan[] = [
-        {
-          id: '1',
-          name: 'Free',
-          description: 'Perfect for getting started',
-          monthlyPrice: 0,
-          annualPrice: 0,
-          features: [
-            '10 playground sessions per month',
-            'Access to free prompts',
-            'Basic analytics',
-            'Community support'
-          ],
-          limitations: [
-            'Limited AI interactions',
-            'No premium prompts',
-            'Basic features only'
-          ],
-          maxUsers: 1,
-          maxProjects: 3,
-          maxStorage: 1,
-          priority: 1,
-          isActive: true,
-          isPopular: false,
-          createdAt: '2024-01-01',
-          subscribers: 8500,
-          revenue: 0
-        },
-        {
-          id: '2',
-          name: 'Pro',
-          description: 'For serious creators and professionals',
-          monthlyPrice: 29,
-          annualPrice: 290,
-          features: [
-            'Unlimited playground sessions',
-            'Access to all premium prompts',
-            'Advanced analytics & insights',
-            'Priority support',
-            'Faster response times',
-            'Custom prompt templates',
-            'Export capabilities'
-          ],
-          limitations: [],
-          maxUsers: 1,
-          maxProjects: 50,
-          maxStorage: 10,
-          priority: 2,
-          isActive: true,
-          isPopular: true,
-          createdAt: '2024-01-01',
-          subscribers: 1200,
-          revenue: 34800
-        },
-        {
-          id: '3',
-          name: 'Enterprise',
-          description: 'For teams and organizations',
-          monthlyPrice: 99,
-          annualPrice: 990,
-          features: [
-            'Everything in Pro',
-            'Team collaboration tools',
-            'Advanced admin controls',
-            'Custom integrations',
-            'Dedicated account manager',
-            'SLA guarantee',
-            'Custom training',
-            'White-label options'
-          ],
-          limitations: [],
-          maxUsers: 50,
-          maxProjects: 500,
-          maxStorage: 100,
-          priority: 3,
-          isActive: true,
-          isPopular: false,
-          createdAt: '2024-01-01',
-          subscribers: 85,
-          revenue: 8415
-        }
-      ];
-
-      setPlans(mockPlans);
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch plans:', error);
-      setLoading(false);
-    }
+  // Extract data from API responses
+  const plans = plansData?.data?.plans || [];
+  const analytics = analyticsData?.data || {
+    totalPlans: 0,
+    totalSubscribers: 0,
+    totalUsers: 0,
+    monthlyRevenue: 0,
+    conversionRate: 0
   };
+
+  // Handle loading and error states
+  const isLoading = plansLoading || analyticsLoading;
+  const hasError = plansError;
 
   const handleEdit = (plan: Plan) => {
     setSelectedPlan(plan);
@@ -205,61 +129,34 @@ const AdminPlans = () => {
     try {
       if (selectedPlan) {
         // Update existing plan
-        setPlans(prev => prev.map(plan => 
-          plan.id === selectedPlan.id 
-            ? { ...plan, ...editForm }
-            : plan
-        ));
-        toast({
-          title: "Plan Updated",
-          description: "Plan has been successfully updated",
+        await updatePlanMutation.mutateAsync({
+          id: selectedPlan.id,
+          ...editForm
         });
       } else {
         // Create new plan
-        const newPlan: Plan = {
-          id: Date.now().toString(),
-          ...editForm,
-          createdAt: new Date().toISOString().split('T')[0],
-          subscribers: 0,
-          revenue: 0
-        };
-        setPlans(prev => [...prev, newPlan]);
-        toast({
-          title: "Plan Created",
-          description: "New plan has been successfully created",
-        });
+        await createPlanMutation.mutateAsync(editForm);
       }
+
       setIsEditDialogOpen(false);
       setIsCreateDialogOpen(false);
       setSelectedPlan(null);
     } catch (error) {
+      // Error handling is done in the mutation hooks
       console.error('Failed to save plan:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save plan",
-        variant: "destructive"
-      });
     }
   };
 
   const handleDelete = async () => {
     try {
       if (selectedPlan) {
-        setPlans(prev => prev.filter(plan => plan.id !== selectedPlan.id));
-        toast({
-          title: "Plan Deleted",
-          description: "Plan has been successfully deleted",
-        });
+        await deletePlanMutation.mutateAsync(selectedPlan.id);
         setIsDeleteDialogOpen(false);
         setSelectedPlan(null);
       }
     } catch (error) {
+      // Error handling is done in the mutation hook
       console.error('Failed to delete plan:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete plan",
-        variant: "destructive"
-      });
     }
   };
 
@@ -302,12 +199,14 @@ const AdminPlans = () => {
     }));
   };
 
-  // Calculate statistics
+  // Use real-time analytics data
   const stats = {
-    totalPlans: plans.length,
+    totalPlans: analytics.totalPlans || 0,
     activePlans: plans.filter(p => p.isActive).length,
-    totalSubscribers: plans.reduce((sum, p) => sum + p.subscribers, 0),
-    totalRevenue: plans.reduce((sum, p) => sum + p.revenue, 0)
+    totalSubscribers: analytics.totalSubscribers || 0,
+    totalUsers: analytics.totalUsers || 0,
+    monthlyRevenue: analytics.monthlyRevenue || 0,
+    conversionRate: analytics.conversionRate || 0
   };
 
   const getPlanIcon = (planName: string) => {
@@ -323,10 +222,26 @@ const AdminPlans = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">Failed to load plans</h2>
+          <p className="text-muted-foreground">Please try refreshing the page</p>
+        </div>
+        <Button onClick={() => { refetchPlans(); refetchAnalytics(); }}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
       </div>
     );
   }
@@ -340,10 +255,20 @@ const AdminPlans = () => {
             Manage subscription plans, pricing, and features
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Plan
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { refetchPlans(); refetchAnalytics(); }}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Plan
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -380,22 +305,22 @@ const AdminPlans = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${stats.monthlyRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              From paid plans
+              This month
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">14.2%</div>
+            <div className="text-2xl font-bold">{stats.conversionRate}%</div>
             <p className="text-xs text-muted-foreground">
-              Free to paid conversion
+              {stats.totalSubscribers} of {stats.totalUsers} users
             </p>
           </CardContent>
         </Card>
@@ -466,12 +391,12 @@ const AdminPlans = () => {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      {plan.subscribers.toLocaleString()}
+                      {plan.analytics?.totalSubscribers?.toLocaleString() || '0'}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      ${plan.revenue.toLocaleString()}
+                      ${plan.analytics?.totalRevenue?.toLocaleString() || '0'}
                     </div>
                   </TableCell>
                   <TableCell>

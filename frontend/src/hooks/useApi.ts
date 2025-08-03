@@ -26,6 +26,8 @@ export const queryKeys = {
   adminUsers: (params: any) => ['admin', 'users', params],
   adminPrompts: (params: any) => ['admin', 'prompts', params],
   adminRecentActivity: (limit?: number) => ['admin', 'recent-activity', limit],
+  adminPlans: ['admin', 'plans'],
+  adminPlansAnalytics: ['admin', 'plans', 'analytics'],
   
   // Payment
   subscriptionPlans: ['payment', 'plans'],
@@ -327,13 +329,90 @@ export const useCreatePaymentOrder = () => {
 
 export const useVerifyPayment = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (paymentData: any) => apiService.verifyPayment(paymentData),
     onSuccess: () => {
       // Invalidate user profile and dashboard to reflect subscription changes
       queryClient.invalidateQueries({ queryKey: queryKeys.profile });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    },
+  });
+};
+
+// Admin Plans hooks
+export const useAdminPlans = () => {
+  return useQuery({
+    queryKey: queryKeys.adminPlans,
+    queryFn: () => apiService.getAdminPlans(),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+};
+
+export const useAdminPlansAnalytics = () => {
+  return useQuery({
+    queryKey: queryKeys.adminPlansAnalytics,
+    queryFn: () => apiService.getAdminPlansAnalytics(),
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+};
+
+export const useCreatePlan = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (planData: any) => apiService.createPlan(planData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      toast({
+        title: "Success",
+        description: "Plan created successfully",
+      });
+    },
+    onError: (error: any) => {
+      handleError(error);
+    },
+  });
+};
+
+export const useUpdatePlan = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, ...planData }: any) => apiService.updatePlan(id, planData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      toast({
+        title: "Success",
+        description: "Plan updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      handleError(error);
+    },
+  });
+};
+
+export const useDeletePlan = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => apiService.deletePlan(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      toast({
+        title: "Success",
+        description: "Plan deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      handleError(error);
     },
   });
 };
