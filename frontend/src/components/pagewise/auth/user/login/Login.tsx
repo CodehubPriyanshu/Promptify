@@ -1,6 +1,6 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { Eye, EyeOff, Sparkles, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Eye, EyeOff, Sparkles, AlertCircle, CheckCircle } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,17 +13,39 @@ const Login = () => {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const { login, isLoading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    // Check for success message from password reset
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message)
+    }
+  }, [location.state])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccessMessage("")
+
+    // Client-side validation
+    if (!email || !password) {
+      setError("Email and password are required")
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address")
+      return
+    }
 
     try {
       await login(email, password)
       navigate("/dashboard")
     } catch (err) {
+      // Error is already handled by AuthContext with toast
       setError(err instanceof Error ? err.message : "Login failed")
     }
   }
@@ -58,6 +80,15 @@ const Login = () => {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
+
+              {successMessage && (
+                <Alert className="border-green-200 bg-green-50 text-green-800">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {successMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -68,6 +99,7 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="rounded-xl"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -82,6 +114,7 @@ const Login = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     className="rounded-xl pr-10"
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -119,15 +152,6 @@ const Login = () => {
                 )}
               </Button>
             </form>
-
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed">
-              <h4 className="text-sm font-medium mb-2">Demo Credentials</h4>
-              <div className="text-xs space-y-1 text-muted-foreground">
-                <div><strong>Email:</strong> user@example.com</div>
-                <div><strong>Password:</strong> password</div>
-              </div>
-            </div>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">

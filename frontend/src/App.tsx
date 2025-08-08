@@ -13,6 +13,8 @@ import About from "./components/pagewise/main/about/About";
 import PricingPage from "./components/pagewise/main/pricing/Pricing";
 import Login from "./components/pagewise/auth/user/login/Login";
 import Signup from "./components/pagewise/auth/user/signup/Signup";
+import ForgotPassword from "./components/pagewise/auth/user/forgot-password/ForgotPassword";
+import ResetPassword from "./components/pagewise/auth/user/reset-password/ResetPassword";
 import Marketplace from "./components/pagewise/user/marketplaces/Marketplace";
 import Playground from "./components/pagewise/user/playground/Playground";
 import Dashboard from "./components/pagewise/user/dashboard/Dashboard";
@@ -66,6 +68,8 @@ const App = () => (
             {/* Authentication Routes */}
             <Route path="/auth/login" element={<ProtectedRoute requireAuth={false}><Login /></ProtectedRoute>} />
             <Route path="/auth/signup" element={<ProtectedRoute requireAuth={false}><Signup /></ProtectedRoute>} />
+            <Route path="/auth/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
+            <Route path="/auth/reset-password/:token" element={<ProtectedRoute requireAuth={false}><ResetPassword /></ProtectedRoute>} />
 
             {/* Authenticated User Routes */}
             <Route path="/marketplace" element={<Layout><Marketplace /></Layout>} />

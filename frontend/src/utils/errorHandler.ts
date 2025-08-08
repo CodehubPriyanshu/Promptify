@@ -255,3 +255,33 @@ export const asyncErrorHandler = (fn: Function) => {
     }
   };
 };
+
+// API response handler for authentication
+export const handleApiResponse = async (response: Response, context?: string) => {
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new AppError(
+      data.message || getDefaultErrorMessage(response.status),
+      response.status,
+      getErrorCode(response.status),
+      data
+    );
+
+    if (context) {
+      console.error(`API Error in ${context}:`, error);
+    }
+
+    throw error;
+  }
+
+  return data;
+};
+
+// Check if error is authentication related
+export const isAuthError = (error: any): boolean => {
+  return error?.status === 401 ||
+         error?.code === ErrorTypes.AUTHENTICATION_ERROR ||
+         error?.message?.toLowerCase().includes('token') ||
+         error?.message?.toLowerCase().includes('unauthorized');
+};

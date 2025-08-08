@@ -1,10 +1,12 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Eye, EyeOff, Sparkles } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import { Eye, EyeOff, Sparkles, AlertCircle } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -15,15 +17,55 @@ const Signup = () => {
     password: "",
     confirmPassword: ""
   })
+  const [error, setError] = useState("")
+  const { signup, isLoading } = useAuth()
+  const navigate = useNavigate()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      return "Full name is required"
+    }
+    if (formData.name.trim().length < 2) {
+      return "Full name must be at least 2 characters"
+    }
+    if (!formData.email) {
+      return "Email is required"
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return "Please enter a valid email address"
+    }
+    if (!formData.password) {
+      return "Password is required"
+    }
+    if (formData.password.length < 6) {
+      return "Password must be at least 6 characters long"
+    }
+    if (!formData.confirmPassword) {
+      return "Please confirm your password"
+    }
     if (formData.password !== formData.confirmPassword) {
-      console.error("Passwords don't match")
+      return "Passwords do not match"
+    }
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
-    // Handle signup logic here
-    console.log("Signup attempt:", formData)
+
+    try {
+      await signup(formData.name.trim(), formData.email, formData.password)
+      navigate("/dashboard")
+    } catch (err) {
+      // Error is already handled by AuthContext with toast
+      setError(err instanceof Error ? err.message : "Registration failed")
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -54,6 +96,12 @@ const Signup = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -64,6 +112,7 @@ const Signup = () => {
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   required
                   className="rounded-xl"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -77,6 +126,7 @@ const Signup = () => {
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   required
                   className="rounded-xl"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -91,6 +141,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange("password", e.target.value)}
                     required
                     className="rounded-xl pr-10"
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -119,6 +170,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
                     required
                     className="rounded-xl pr-10"
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -136,8 +188,15 @@ const Signup = () => {
                 </div>
               </div>
 
-              <Button type="submit" variant="ai" className="w-full" size="lg">
-                Create Account
+              <Button type="submit" variant="ai" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Creating Account...</span>
+                  </div>
+                ) : (
+                  'Create Account'
+                )}
               </Button>
             </form>
 

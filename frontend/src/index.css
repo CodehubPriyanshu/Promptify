@@ -181,6 +181,30 @@
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .safe-left { padding-left: env(safe-area-inset-left); }
   .safe-right { padding-right: env(safe-area-inset-right); }
+
+  /* Mobile-first card improvements */
+  .card-mobile { @apply rounded-lg sm:rounded-xl; }
+  .card-padding { @apply p-4 sm:p-6; }
+
+  /* Mobile-optimized text sizes */
+  .text-mobile-sm { @apply text-sm sm:text-base; }
+  .text-mobile-base { @apply text-base sm:text-lg; }
+  .text-mobile-lg { @apply text-lg sm:text-xl; }
+  .text-mobile-xl { @apply text-xl sm:text-2xl; }
+  .text-mobile-2xl { @apply text-2xl sm:text-3xl; }
+  .text-mobile-3xl { @apply text-3xl sm:text-4xl; }
+
+  /* Mobile-friendly form elements */
+  .input-mobile { @apply text-base sm:text-sm; } /* Prevents zoom on iOS */
+  .button-mobile { @apply text-base py-3 px-4 sm:py-2 sm:px-3 sm:text-sm; }
+
+  /* Mobile navigation improvements */
+  .nav-mobile { @apply px-4 sm:px-6 lg:px-8; }
+  .nav-item-mobile { @apply px-3 py-2 sm:px-4 sm:py-2; }
+
+  /* Mobile-optimized spacing for lists */
+  .list-mobile { @apply space-y-3 sm:space-y-2; }
+  .list-item-mobile { @apply p-3 sm:p-4; }
 }
 
 /* Custom scrollbar for webkit browsers */

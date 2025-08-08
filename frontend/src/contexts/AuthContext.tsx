@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { showErrorToast, handleApiResponse, isAuthError } from '@/utils/errorHandler';
 
 interface User {
   id: string;
@@ -30,6 +31,8 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
   refreshUser: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,33 +93,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Regular user authentication
+      // Regular user authentication - verify with backend
       if (token) {
-        // Mock user data - replace with actual API call
-        const mockUser: User = {
-          id: '1',
-          name: 'John Doe',
-          email: 'john@example.com',
-          role: 'user',
-          subscription: {
-            plan: 'Free',
-            status: 'active'
-          },
-          usage: {
-            playgroundSessions: {
-              current: 3,
-              limit: 10
+        try {
+          const response = await fetch('/api/auth/me', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-            promptsCreated: 5
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data?.user) {
+              // Map backend user data to frontend User interface
+              const userData: User = {
+                id: data.data.user._id || data.data.user.id,
+                name: data.data.user.name,
+                email: data.data.user.email,
+                role: data.data.user.role || 'user',
+                subscription: {
+                  plan: data.data.user.plan?.name || 'Free',
+                  status: data.data.user.subscription?.status || 'active'
+                },
+                usage: {
+                  playgroundSessions: {
+                    current: data.data.user.usage?.playgroundSessions?.current || 0,
+                    limit: data.data.user.usage?.playgroundSessions?.limit || 10
+                  },
+                  promptsCreated: data.data.user.usage?.promptsCreated || 0
+                },
+                avatar: data.data.user.avatar
+              };
+              setUser(userData);
+            } else {
+              throw new Error('Invalid user data received');
+            }
+          } else {
+            throw new Error('Token validation failed');
           }
-        };
-        setUser(mockUser);
+        } catch (apiError) {
+          console.error('API auth check failed:', apiError);
+          // Clear invalid token
+          localStorage.removeItem('authToken');
+          setUser(null);
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       localStorage.removeItem('authToken');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('userRole');
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +155,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      // Mock login API call
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -135,43 +163,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error('Login failed');
+        let errorMessage = 'Login failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `Login failed: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      
-      // Store token
-      localStorage.setItem('authToken', data.token);
-      
-      // Set user data
-      setUser(data.user);
-    } catch (error) {
-      // For demo purposes, use mock login
-      if (email === 'user@example.com' && password === 'password') {
-        const mockUser: User = {
-          id: '1',
-          name: 'Demo User',
-          email: 'user@example.com',
-          role: 'user',
-          subscription: {
-            plan: 'Free',
-            status: 'active'
-          },
-          usage: {
-            playgroundSessions: {
-              current: 3,
-              limit: 10
-            },
-            promptsCreated: 5
-          }
-        };
-        
-        localStorage.setItem('authToken', 'mock-token');
-        setUser(mockUser);
-      } else {
-        throw error;
+
+      if (!data.success || !data.data?.token || !data.data?.user) {
+        throw new Error('Invalid response from server');
       }
+
+      // Store token
+      localStorage.setItem('authToken', data.data.token);
+
+      // Map backend user data to frontend User interface
+      const userData: User = {
+        id: data.data.user._id || data.data.user.id,
+        name: data.data.user.name,
+        email: data.data.user.email,
+        role: data.data.user.role || 'user',
+        subscription: {
+          plan: data.data.user.plan?.name || 'Free',
+          status: data.data.user.subscription?.status || 'active'
+        },
+        usage: {
+          playgroundSessions: {
+            current: data.data.user.usage?.playgroundSessions?.current || 0,
+            limit: data.data.user.usage?.playgroundSessions?.limit || 10
+          },
+          promptsCreated: data.data.user.usage?.promptsCreated || 0
+        },
+        avatar: data.data.user.avatar
+      };
+
+      setUser(userData);
+    } catch (error) {
+      console.error('Login error:', error);
+      showErrorToast(error, 'Login');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -181,8 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      // Mock signup API call
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,39 +227,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ name, email, password }),
       });
 
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error('Signup failed');
+        let errorMessage = 'Registration failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `Registration failed: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      
+
+      if (!data.success || !data.data?.token || !data.data?.user) {
+        throw new Error('Invalid response from server');
+      }
+
       // Store token
-      localStorage.setItem('authToken', data.token);
-      
-      // Set user data
-      setUser(data.user);
-    } catch (error) {
-      // For demo purposes, use mock signup
-      const mockUser: User = {
-        id: '2',
-        name,
-        email,
-        role: 'user',
+      localStorage.setItem('authToken', data.data.token);
+
+      // Map backend user data to frontend User interface
+      const userData: User = {
+        id: data.data.user._id || data.data.user.id,
+        name: data.data.user.name,
+        email: data.data.user.email,
+        role: data.data.user.role || 'user',
         subscription: {
-          plan: 'Free',
-          status: 'active'
+          plan: data.data.user.plan?.name || 'Free',
+          status: data.data.user.subscription?.status || 'active'
         },
         usage: {
           playgroundSessions: {
-            current: 0,
-            limit: 10
+            current: data.data.user.usage?.playgroundSessions?.current || 0,
+            limit: data.data.user.usage?.playgroundSessions?.limit || 10
           },
-          promptsCreated: 0
-        }
+          promptsCreated: data.data.user.usage?.promptsCreated || 0
+        },
+        avatar: data.data.user.avatar
       };
-      
-      localStorage.setItem('authToken', 'mock-token');
-      setUser(mockUser);
+
+      setUser(userData);
+    } catch (error) {
+      console.error('Signup error:', error);
+      showErrorToast(error, 'Registration');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -290,10 +341,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('userRole');
-    setUser(null);
+    try {
+      // Call logout endpoint to update last active time
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(error => {
+          console.error('Logout API call failed:', error);
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Always clear local storage and user state
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('userRole');
+      setUser(null);
+    }
   };
 
   const updateUser = (userData: Partial<User>) => {
@@ -307,11 +377,78 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('authToken');
       if (!token) return;
 
-      // Mock API call to refresh user data
-      // In real app, this would fetch latest user data from server
       await checkAuthStatus();
     } catch (error) {
       console.error('Failed to refresh user:', error);
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok) {
+        let errorMessage = 'Failed to send reset email';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          errorMessage = `Failed to send reset email: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      // Don't throw error even if user doesn't exist for security
+      return data.message || 'Password reset link has been sent to your email';
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      showErrorToast(error, 'Forgot Password');
+      throw error;
+    }
+  };
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, password }),
+      });
+
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok) {
+        let errorMessage = 'Failed to reset password';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          errorMessage = `Failed to reset password: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Password reset failed');
+      }
+
+      return data.message || 'Password has been reset successfully';
+    } catch (error) {
+      console.error('Reset password error:', error);
+      showErrorToast(error, 'Reset Password');
+      throw error;
     }
   };
 
@@ -325,6 +462,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
     refreshUser,
+    forgotPassword,
+    resetPassword,
   };
 
   return (
