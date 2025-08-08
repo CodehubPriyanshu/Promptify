@@ -34,72 +34,7 @@ const Pricing = () => {
     limitations: [],
     popular: p.metadata?.popular ?? false,
     current: user?.subscription?.planId === p._id || user?.plan === p._id,
-  })) as Array<any>
-    {
-      id: 'free',
-      name: 'Free',
-      description: 'Perfect for getting started',
-      monthlyPrice: 0,
-      annualPrice: 0,
-      icon: <Star className="h-6 w-6" />,
-      features: [
-        '10 playground sessions per month',
-        'Access to free prompts',
-        'Basic analytics',
-        'Community support',
-        'Standard response time'
-      ],
-      limitations: [
-        'Limited AI interactions',
-        'No premium prompts',
-        'Basic features only'
-      ],
-      popular: false,
-      current: user?.subscription.plan === 'Free'
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
-      description: 'For serious creators and professionals',
-      monthlyPrice: 29,
-      annualPrice: 290, // 2 months free
-      icon: <Zap className="h-6 w-6" />,
-      features: [
-        'Unlimited playground sessions',
-        'Access to all premium prompts',
-        'Advanced analytics & insights',
-        'Priority support',
-        'Faster response times',
-        'Custom prompt templates',
-        'Export capabilities',
-        'API access (coming soon)'
-      ],
-      limitations: [],
-      popular: true,
-      current: user?.subscription.plan === 'Pro'
-    },
-    {
-      id: 'enterprise',
-      name: 'Enterprise',
-      description: 'For teams and organizations',
-      monthlyPrice: 99,
-      annualPrice: 990, // 2 months free
-      icon: <Crown className="h-6 w-6" />,
-      features: [
-        'Everything in Pro',
-        'Team collaboration tools',
-        'Advanced admin controls',
-        'Custom integrations',
-        'Dedicated account manager',
-        'SLA guarantee',
-        'Custom training',
-        'White-label options'
-      ],
-      limitations: [],
-      popular: false,
-      current: user?.subscription.plan === 'Enterprise'
-    }
-  ]
+  })) as Array<any>;
 
   const handleSubscribe = async (planId: string) => {
     if (!isAuthenticated) {
@@ -159,9 +94,20 @@ const Pricing = () => {
         throw new Error(orderData.message || 'Failed to create order')
       }
 
+      // Check for Razorpay key
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!razorpayKey) {
+        toast({
+          title: "Configuration Error",
+          description: "Payment system is not configured. Please contact support.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Initialize Razorpay
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: razorpayKey,
         amount: amount * 100,
         currency: 'INR',
         name: 'Promptify',

@@ -80,9 +80,9 @@ const Footer = () => {
           </div>
 
           {/* Footer Sections */}
-          <div className="footer-sections flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-12">
+          <div className="flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-12">
             {/* Legal Section */}
-            <div className="footer-section">
+            <div className="md:border-r md:border-border md:pr-12">
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-3">
                 {footerLinks.legal.map((link) => (
@@ -99,14 +99,14 @@ const Footer = () => {
             </div>
 
             {/* Company Section */}
-            <div className="footer-section">
+            <div className="md:border-r md:border-border md:pr-12">
               <h3 className="font-semibold mb-4">Company</h3>
               <ul className="space-y-3">
                 {footerLinks.company.map((link) => (
                   <li key={link.name}>
                     {link.href ? (
-                      <Link 
-                        to={link.href} 
+                      <Link
+                        to={link.href}
                         className="text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {link.name}
@@ -125,13 +125,13 @@ const Footer = () => {
             </div>
 
             {/* Product Section */}
-            <div className="footer-section">
+            <div>
               <h3 className="font-semibold mb-4">Product</h3>
               <ul className="space-y-3">
                 {footerLinks.product.map((link) => (
                   <li key={link.name}>
-                    <Link 
-                      to={link.href} 
+                    <Link
+                      to={link.href}
                       className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {link.name}
@@ -164,45 +164,7 @@ const Footer = () => {
         </div>
       </div>
 
-      <style jsx>{`
-        .footer {
-          display: flex;
-          justify-content: space-between;
-        }
-        
-        .footer-sections {
-          display: flex;
-        }
-        
-        .footer-section:not(:last-child) {
-          border-right: 1px solid #e0e0e0;
-          padding-right: 3rem;
-          margin-right: 3rem;
-        }
-        
-        @media (max-width: 768px) {
-          .footer {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          
-          .footer-sections {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          
-          .footer-section:not(:last-child) {
-            border-right: none;
-            border-bottom: 1px solid #e0e0e0;
-            padding-right: 0;
-            padding-bottom: 2rem;
-            margin-right: 0;
-            margin-bottom: 2rem;
-          }
-        }
-      `}</style>
+
     </footer>
   )
 }

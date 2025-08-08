@@ -186,6 +186,48 @@ router.post('/session/end', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/playground/sessions
+// @desc    Get user's playground sessions
+// @access  Private
+router.get('/sessions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const sessions = await Session.find({
+      user: userId,
+      type: 'playground'
+    })
+      .sort({ startTime: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select('sessionId startTime endTime duration actions');
+
+    const total = await Session.countDocuments({
+      user: userId,
+      type: 'playground'
+    });
+
+    res.json(
+      formatResponse(true, 'Sessions retrieved successfully', {
+        sessions,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      })
+    );
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to get sessions')
+    );
+  }
+});
+
 // @route   GET /api/playground/history
 // @desc    Get user's playground history
 // @access  Private

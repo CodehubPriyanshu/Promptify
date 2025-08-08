@@ -253,6 +253,30 @@ class ApiService {
     });
   }
 
+  async createPrompt(promptData: {
+    title: string;
+    description: string;
+    content: string;
+    category: string;
+    tags?: string[];
+    isPaid: boolean;
+    price?: number;
+    status?: string;
+    featured?: boolean;
+    trending?: boolean;
+  }) {
+    return this.request<any>('/admin/prompts', {
+      method: 'POST',
+      body: JSON.stringify(promptData),
+    });
+  }
+
+  async deleteAdminPrompt(promptId: string) {
+    return this.request<any>(`/admin/prompts/${promptId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Admin Plans endpoints
   async getAdminPlans() {
     return this.request<any>('/admin/plans');
@@ -276,8 +300,8 @@ class ApiService {
     });
   }
 
-  async deletePlan(planId: string) {
-    return this.request<any>(`/admin/plans/${planId}`, {
+  async deletePlan(id: string) {
+    return this.request<any>(`/admin/plans/${id}`, {
       method: 'DELETE',
     });
   }

@@ -79,6 +79,22 @@ router.get('/prompts', optionalAuth, async (req, res) => {
       .limit(limitNum)
       .select('-content'); // Don't send full content in list
 
+    // Handle admin-created prompts that don't have a real user in the database
+    const processedPrompts = prompts.map(prompt => {
+      const promptObj = prompt.toObject();
+
+      // If author population failed (admin user), manually set admin info
+      if (!promptObj.author || !promptObj.author.name) {
+        promptObj.author = {
+          _id: promptObj.author || prompt.author,
+          name: 'Admin User',
+          avatar: null
+        };
+      }
+
+      return promptObj;
+    });
+
     const total = await Prompt.countDocuments(query);
 
     // Increment views for each prompt (async, don't wait)
@@ -90,7 +106,7 @@ router.get('/prompts', optionalAuth, async (req, res) => {
 
     res.json(
       formatResponse(true, 'Prompts retrieved successfully', {
-        prompts,
+        prompts: processedPrompts,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -205,6 +221,15 @@ router.put('/prompts/:id', authenticateToken, async (req, res) => {
     }
 
     // Check if user owns this prompt or is admin
+    // Special handling for admin-created prompts - only admin can modify them
+    const isAdminCreated = prompt.adminNotes && prompt.adminNotes.notes === 'Created by admin';
+
+    if (isAdminCreated && req.user.role !== 'admin') {
+      return res.status(403).json(
+        formatResponse(false, 'Only admin can modify admin-created prompts')
+      );
+    }
+
     if (prompt.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json(
         formatResponse(false, 'Access denied')
@@ -254,9 +279,19 @@ router.delete('/prompts/:id', authenticateToken, async (req, res) => {
     }
 
     // Check if user owns this prompt or is admin
-    if (prompt.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    // Special handling for admin-created prompts - only admin can modify them
+    const isAdminCreated = prompt.adminNotes && prompt.adminNotes.notes === 'Created by admin';
+    const isUserOwned = prompt.author.toString() === req.user._id.toString();
+
+    if (isAdminCreated && req.user.role !== 'admin') {
       return res.status(403).json(
-        formatResponse(false, 'Access denied')
+        formatResponse(false, 'Only admin can delete admin-created prompts')
+      );
+    }
+
+    if (!isUserOwned && req.user.role !== 'admin') {
+      return res.status(403).json(
+        formatResponse(false, 'You can only delete your own prompts')
       );
     }
 

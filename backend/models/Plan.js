@@ -119,6 +119,15 @@ const planSchema = new mongoose.Schema({
   isVisible: {
     type: Boolean,
     default: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  isAdminCreated: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true,

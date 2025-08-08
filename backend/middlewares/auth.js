@@ -1,5 +1,9 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
+
+// Create a consistent ObjectId for admin user
+const ADMIN_USER_ID = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
 
 // Verify JWT token
 export const authenticateToken = async (req, res, next) => {
@@ -15,12 +19,12 @@ export const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Handle admin tokens (hardcoded admin user)
     if (decoded.role === 'admin' && decoded.userId === 'admin-1') {
       req.user = {
-        _id: decoded.userId,
-        userId: decoded.userId,
+        _id: ADMIN_USER_ID,
+        userId: 'admin-1',
         email: decoded.email,
         role: 'admin',
         name: 'Admin User',
@@ -31,7 +35,7 @@ export const authenticateToken = async (req, res, next) => {
 
     // Handle regular user tokens
     const user = await User.findById(decoded.userId).select('-password');
-    
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -48,7 +52,7 @@ export const authenticateToken = async (req, res, next) => {
         message: 'Invalid token'
       });
     }
-    
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,

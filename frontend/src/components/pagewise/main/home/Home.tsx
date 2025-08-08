@@ -278,7 +278,7 @@ const Home = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <span>by {prompt.author}</span>
+                    <span>by {prompt.author?.name || prompt.author}</span>
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center">
                         <Heart className="h-4 w-4 mr-1" />

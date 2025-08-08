@@ -94,18 +94,39 @@ export const validatePlanCreation = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Plan name must be between 2 and 50 characters'),
-  
-  body('price')
+
+  body('description')
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Description must be between 1 and 200 characters'),
+
+  body('price.monthly')
     .isFloat({ min: 0 })
-    .withMessage('Price must be a valid number'),
-  
+    .withMessage('Monthly price must be a valid number >= 0'),
+
+  body('price.yearly')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Yearly price must be a valid number >= 0'),
+
   body('features')
-    .isArray({ min: 1 })
-    .withMessage('Features must be an array with at least one item'),
-  
-  body('playgroundSessions')
-    .isInt({ min: -1 })
-    .withMessage('Playground sessions must be a number (-1 for unlimited)'),
-  
+    .isArray()
+    .withMessage('Features must be an array'),
+
+  body('features.*.name')
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage('Each feature must have a name'),
+
+  body('isActive')
+    .optional()
+    .isBoolean()
+    .withMessage('isActive must be a boolean'),
+
+  body('isVisible')
+    .optional()
+    .isBoolean()
+    .withMessage('isVisible must be a boolean'),
+
   handleValidationErrors
 ];

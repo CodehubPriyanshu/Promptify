@@ -194,10 +194,10 @@ const Dashboard = () => {
                 <Eye className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analytics.totalViews.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{(analytics.totalViews ?? 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +{analytics.growthRate}% from last month
+                  +{analytics.growthRate ?? 0}% from last month
                 </p>
               </CardContent>
             </Card>
@@ -208,7 +208,7 @@ const Dashboard = () => {
                 <Heart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analytics.totalLikes.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{(analytics.totalLikes ?? 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   Across all your prompts
                 </p>
@@ -221,7 +221,7 @@ const Dashboard = () => {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${analytics.totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">${(analytics.totalRevenue ?? 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   From paid prompts
                 </p>
@@ -277,7 +277,6 @@ const Dashboard = () => {
                     <p className="text-sm">Try some prompts in the playground to see them here!</p>
                   </div>
                 )}
-                ))}
               </div>
             </CardContent>
           </Card>
@@ -425,15 +424,15 @@ const Dashboard = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Views</p>
-                        <p className="font-semibold">{prompt.views.toLocaleString()}</p>
+                        <p className="font-semibold">{(prompt.views ?? 0).toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Likes</p>
-                        <p className="font-semibold">{prompt.likes}</p>
+                        <p className="font-semibold">{prompt.likes ?? 0}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Revenue</p>
-                        <p className="font-semibold">${prompt.revenue.toFixed(2)}</p>
+                        <p className="font-semibold">${(prompt.revenue ?? 0).toFixed(2)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Type</p>
@@ -478,11 +477,11 @@ const Dashboard = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span>Total Views</span>
-                      <span className="font-semibold">{analytics.totalViews.toLocaleString()}</span>
+                      <span className="font-semibold">{(analytics.totalViews ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Total Likes</span>
-                      <span className="font-semibold">{analytics.totalLikes.toLocaleString()}</span>
+                      <span className="font-semibold">{(analytics.totalLikes ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Published Prompts</span>

@@ -14,16 +14,23 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     const userId = req.user._id;
 
+    if (!userId) {
+      return res.status(400).json(
+        formatResponse(false, 'User ID not found')
+      );
+    }
+
     // Get user's prompts with analytics
     const userPrompts = await Prompt.find({ author: userId })
       .select('title category status analytics createdAt isPaid price')
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .lean();
 
-    // Calculate user analytics
-    const totalViews = userPrompts.reduce((sum, prompt) => sum + prompt.analytics.views, 0);
-    const totalLikes = userPrompts.reduce((sum, prompt) => sum + prompt.analytics.likes, 0);
-    const totalRevenue = userPrompts.reduce((sum, prompt) => sum + prompt.analytics.revenue, 0);
+    // Calculate user analytics with safe defaults
+    const totalViews = userPrompts.reduce((sum, prompt) => sum + (prompt.analytics?.views || 0), 0);
+    const totalLikes = userPrompts.reduce((sum, prompt) => sum + (prompt.analytics?.likes || 0), 0);
+    const totalRevenue = userPrompts.reduce((sum, prompt) => sum + (prompt.analytics?.revenue || 0), 0);
     const publishedPrompts = userPrompts.filter(p => p.status === 'published').length;
 
     // Get recent activity from playground sessions and recent prompts
@@ -55,8 +62,8 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       recentActivity: formattedActivity,
       prompts: userPrompts,
       usage: {
-        playgroundSessions: req.user.usage.playgroundSessions,
-        plan: req.user.plan
+        playgroundSessions: req.user.usage?.playgroundSessions || { current: 0, limit: 10 },
+        plan: req.user.plan || 'Free'
       }
     };
 
@@ -321,6 +328,14 @@ router.delete('/prompts/:id', authenticateToken, async (req, res) => {
     if (!prompt) {
       return res.status(404).json(
         formatResponse(false, 'Prompt not found or unauthorized')
+      );
+    }
+
+    // Additional check: prevent deletion of admin-created prompts by regular users
+    const isAdminCreated = prompt.adminNotes && prompt.adminNotes.notes === 'Created by admin';
+    if (isAdminCreated) {
+      return res.status(403).json(
+        formatResponse(false, 'Admin-created prompts cannot be deleted by users')
       );
     }
 

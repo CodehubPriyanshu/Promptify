@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAdminPrompts, useUpdatePromptStatus, useUpdatePromptDetails } from '@/hooks/useApi';
+import { useAdminPrompts, useUpdatePromptStatus, useUpdatePromptDetails, useCreatePrompt, useDeleteAdminPrompt } from '@/hooks/useApi';
 import {
   Search,
   Filter,
@@ -35,6 +35,7 @@ interface Prompt {
   id: string;
   title: string;
   description: string;
+  content?: string;
   author: {
     name: string;
     email: string;
@@ -67,6 +68,7 @@ const AdminMarketplace = () => {
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
+    content: '',
     category: '',
     type: 'free' as 'free' | 'premium',
     price: 0,
@@ -97,6 +99,8 @@ const AdminMarketplace = () => {
 
   const updatePromptStatusMutation = useUpdatePromptStatus();
   const updatePromptDetailsMutation = useUpdatePromptDetails();
+  const createPromptMutation = useCreatePrompt();
+  const deletePromptMutation = useDeleteAdminPrompt();
 
   const prompts = promptsData?.data?.prompts || [];
   const loading = isLoading;
@@ -202,6 +206,7 @@ const AdminMarketplace = () => {
     setEditForm({
       title: prompt.title,
       description: prompt.description,
+      content: prompt.content || prompt.description, // Fallback to description if content not available
       category: prompt.category,
       type: prompt.type,
       price: prompt.price,
@@ -216,6 +221,7 @@ const AdminMarketplace = () => {
     setEditForm({
       title: '',
       description: '',
+      content: '',
       category: '',
       type: 'free',
       price: 0,
@@ -228,40 +234,105 @@ const AdminMarketplace = () => {
 
   const handleSave = async () => {
     try {
+      // Validate required fields
+      if (!editForm.title?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Title is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!editForm.description?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Description is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!editForm.category?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Category is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!editForm.content?.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Content is required (minimum 10 characters)",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (editForm.content.trim().length < 10) {
+        toast({
+          title: "Validation Error",
+          description: "Content must be at least 10 characters long",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate category is in allowed list
+      const allowedCategories = ['writing', 'development', 'marketing', 'education', 'business', 'analytics'];
+      if (!allowedCategories.includes(editForm.category.toLowerCase())) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a valid category",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Map frontend form to backend schema
+      const promptData = {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        content: editForm.content.trim(),
+        category: editForm.category.toLowerCase(),
+        tags: [], // Empty array for now
+        isPaid: editForm.type === 'premium',
+        price: editForm.type === 'premium' ? editForm.price : 0,
+        status: editForm.status || 'published',
+        featured: editForm.featured || false,
+        trending: editForm.trending || false
+      };
+
+      console.log('Sending prompt data:', JSON.stringify(promptData, null, 2));
+
       if (selectedPrompt) {
         // Update existing prompt
-        setPrompts(prev => prev.map(prompt =>
-          prompt.id === selectedPrompt.id
-            ? { ...prompt, ...editForm }
-            : prompt
-        ));
-        toast({
-          title: "Prompt Updated",
-          description: "Prompt has been successfully updated",
+        await updatePromptDetailsMutation.mutateAsync({
+          promptId: selectedPrompt.id,
+          updates: {
+            status: editForm.status,
+            featured: editForm.featured,
+            trending: editForm.trending
+          }
         });
       } else {
         // Create new prompt
-        const newPrompt: Prompt = {
-          id: Date.now().toString(),
-          ...editForm,
-          author: { name: 'Admin', email: 'admin@promptify.com' },
-          analytics: { views: 0, downloads: 0, likes: 0, revenue: 0 },
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        setPrompts(prev => [newPrompt, ...prev]);
-        toast({
-          title: "Prompt Created",
-          description: "New prompt has been successfully created",
-        });
+        await createPromptMutation.mutateAsync(promptData);
       }
+
       setIsEditDialogOpen(false);
       setIsCreateDialogOpen(false);
       setSelectedPrompt(null);
+
+      // Refetch data to get updated list
+      refetch();
     } catch (error) {
       console.error('Failed to save prompt:', error);
       toast({
         title: "Error",
-        description: "Failed to save prompt",
+        description: error instanceof Error ? error.message : "Failed to save prompt",
         variant: "destructive"
       });
     }
@@ -270,19 +341,16 @@ const AdminMarketplace = () => {
   const handleDelete = async () => {
     try {
       if (selectedPrompt) {
-        setPrompts(prev => prev.filter(prompt => prompt.id !== selectedPrompt.id));
-        toast({
-          title: "Prompt Deleted",
-          description: "Prompt has been successfully deleted",
-        });
+        await deletePromptMutation.mutateAsync(selectedPrompt.id);
         setIsDeleteDialogOpen(false);
         setSelectedPrompt(null);
+        refetch();
       }
     } catch (error) {
       console.error('Failed to delete prompt:', error);
       toast({
         title: "Error",
-        description: "Failed to delete prompt",
+        description: error instanceof Error ? error.message : "Failed to delete prompt",
         variant: "destructive"
       });
     }
@@ -643,6 +711,21 @@ const AdminMarketplace = () => {
                 placeholder="Enter prompt description"
                 rows={3}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="content">Content *</Label>
+              <Textarea
+                id="content"
+                value={editForm.content}
+                onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Enter the actual prompt content (minimum 10 characters)"
+                rows={5}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                This is the actual prompt content that users will see and use.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

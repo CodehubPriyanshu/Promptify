@@ -43,8 +43,8 @@ const defaultQueryOptions = {
     // Retry up to 3 times for other errors
     return failureCount < 3;
   },
-  retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  staleTime: 5 * 60 * 1000, // 5 minutes
+  retryDelay: 0, // No delay for immediate retry
+  staleTime: 0, // No cache - admin-created data should be immediately available
 };
 
 // Auth hooks
@@ -308,6 +308,65 @@ export const useUpdatePromptDetails = () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
       // Invalidate admin dashboard
       queryClient.invalidateQueries({ queryKey: queryKeys.adminDashboard });
+    },
+  });
+};
+
+export const useCreatePrompt = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (promptData: {
+      title: string;
+      description: string;
+      content: string;
+      category: string;
+      tags?: string[];
+      isPaid: boolean;
+      price?: number;
+      status?: string;
+      featured?: boolean;
+      trending?: boolean;
+    }) => apiService.createPrompt(promptData),
+    onSuccess: () => {
+      // Invalidate admin prompts queries
+      queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] });
+      // Invalidate marketplace prompts
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
+      // Invalidate admin dashboard
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminDashboard });
+      toast({
+        title: "Success",
+        description: "Prompt created successfully",
+      });
+    },
+    onError: (error: any) => {
+      handleError(error);
+    },
+  });
+};
+
+export const useDeleteAdminPrompt = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (promptId: string) => apiService.deleteAdminPrompt(promptId),
+    onSuccess: () => {
+      // Invalidate admin prompts queries
+      queryClient.invalidateQueries({ queryKey: ['admin', 'prompts'] });
+      // Invalidate marketplace prompts
+      queryClient.invalidateQueries({ queryKey: ['marketplace', 'prompts'] });
+      // Invalidate admin dashboard
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminDashboard });
+      toast({
+        title: "Success",
+        description: "Prompt deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      handleError(error);
     },
   });
 };

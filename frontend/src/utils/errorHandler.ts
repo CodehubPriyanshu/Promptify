@@ -220,8 +220,15 @@ export const withRetry = async <T>(
     } catch (error) {
       lastError = error;
       
-      // Don't retry on client errors (4xx) except 429
+      // Don't retry on client errors (4xx) except 429 (rate limit)
       if (error?.response?.status >= 400 && error?.response?.status < 500 && error?.response?.status !== 429) {
+        console.log(`Not retrying client error: ${error?.response?.status}`);
+        throw error;
+      }
+
+      // Don't retry on specific error codes that won't resolve with retry
+      if ([400, 401, 403, 404, 422].includes(error?.response?.status)) {
+        console.log(`Not retrying non-retryable error: ${error?.response?.status}`);
         throw error;
       }
 
@@ -229,10 +236,8 @@ export const withRetry = async <T>(
         break;
       }
 
-      // Exponential backoff
-      const waitTime = delay * Math.pow(2, attempt - 1);
-      console.log(`Retry attempt ${attempt}/${maxRetries} after ${waitTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      // No delay for immediate retry (admin-created data should be instantly available)
+      console.log(`Retry attempt ${attempt}/${maxRetries} - immediate retry`);
     }
   }
 

@@ -184,13 +184,14 @@ router.put('/users/:id', async (req, res) => {
 // @access  Admin
 router.get('/prompts', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, category, search } = req.query;
+    const { page = 1, limit = 20, status, category, search, type } = req.query;
     const { page: pageNum, limit: limitNum, skip } = calculatePagination(page, limit);
 
     // Build query
     const query = {};
     if (status) query.status = status;
     if (category) query.category = category;
+    if (type) query.type = type;
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -204,11 +205,27 @@ router.get('/prompts', async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
+    // Handle admin-created prompts that don't have a real user in the database
+    const processedPrompts = prompts.map(prompt => {
+      const promptObj = prompt.toObject();
+
+      // If author population failed (admin user), manually set admin info
+      if (!promptObj.author || !promptObj.author.name) {
+        promptObj.author = {
+          _id: promptObj.author || prompt.author,
+          name: 'Admin User',
+          email: 'admin@promptify.com'
+        };
+      }
+
+      return promptObj;
+    });
+
     const total = await Prompt.countDocuments(query);
 
     res.json(
       formatResponse(true, 'Prompts retrieved successfully', {
-        prompts,
+        prompts: processedPrompts,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -230,7 +247,10 @@ router.get('/prompts', async (req, res) => {
 // @access  Admin
 router.post('/prompts', validatePromptCreation, async (req, res) => {
   try {
-    const { title, description, content, category, tags, type, price } = req.body;
+    const { title, description, content, category, tags, isPaid, price } = req.body;
+
+    console.log('Creating prompt with data:', JSON.stringify(req.body, null, 2));
+    console.log('Admin user:', JSON.stringify(req.user, null, 2));
 
     const prompt = new Prompt({
       title,
@@ -239,9 +259,13 @@ router.post('/prompts', validatePromptCreation, async (req, res) => {
       category,
       tags: Array.isArray(tags) ? tags : tags?.split(',').map(tag => tag.trim()) || [],
       author: req.user._id, // Admin is the author
-      type: type || 'free',
-      price: type === 'premium' ? price : 0,
+      type: isPaid ? 'premium' : 'free',
+      price: isPaid ? (price || 0) : 0,
       status: 'published',
+      metadata: {
+        featured: false,
+        trending: false
+      },
       adminNotes: {
         reviewedBy: req.user._id,
         reviewedAt: new Date(),
@@ -249,18 +273,44 @@ router.post('/prompts', validatePromptCreation, async (req, res) => {
       }
     });
 
-    await prompt.save();
+    console.log('Prompt object before save:', JSON.stringify(prompt.toObject(), null, 2));
 
-    const populatedPrompt = await Prompt.findById(prompt._id)
-      .populate('author', 'name email');
+    await prompt.save();
+    console.log('Prompt saved successfully with ID:', prompt._id);
+
+    // For admin-created prompts, we need to handle the author population differently
+    // since the admin user doesn't exist in the User collection
+    const populatedPrompt = await Prompt.findById(prompt._id);
+
+    // Manually add admin user info for response
+    const promptResponse = populatedPrompt.toObject();
+    promptResponse.author = {
+      _id: req.user._id,
+      name: req.user.name,
+      email: req.user.email
+    };
 
     res.status(201).json(
-      formatResponse(true, 'Prompt created successfully', { prompt: populatedPrompt })
+      formatResponse(true, 'Prompt created successfully', { prompt: promptResponse })
     );
   } catch (error) {
     console.error('Create admin prompt error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Handle validation errors specifically
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json(
+        formatResponse(false, 'Validation failed', { errors: validationErrors })
+      );
+    }
+
     res.status(500).json(
-      formatResponse(false, 'Failed to create prompt')
+      formatResponse(false, 'Failed to create prompt', { error: error.message })
     );
   }
 });
@@ -295,13 +345,51 @@ router.put('/prompts/:id', async (req, res) => {
       );
     }
 
+    // Handle admin-created prompts that don't have a real user in the database
+    const promptObj = prompt.toObject();
+    if (!promptObj.author || !promptObj.author.name) {
+      promptObj.author = {
+        _id: promptObj.author || prompt.author,
+        name: 'Admin User',
+        email: 'admin@promptify.com'
+      };
+    }
+
     res.json(
-      formatResponse(true, 'Prompt updated successfully', { prompt })
+      formatResponse(true, 'Prompt updated successfully', { prompt: promptObj })
     );
   } catch (error) {
     console.error('Update prompt error:', error);
     res.status(500).json(
       formatResponse(false, 'Failed to update prompt')
+    );
+  }
+});
+
+// @route   DELETE /api/admin/prompts/:id
+// @desc    Delete prompt
+// @access  Admin
+router.delete('/prompts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const prompt = await Prompt.findById(id);
+
+    if (!prompt) {
+      return res.status(404).json(
+        formatResponse(false, 'Prompt not found')
+      );
+    }
+
+    await Prompt.findByIdAndDelete(id);
+
+    res.json(
+      formatResponse(true, 'Prompt deleted successfully')
+    );
+  } catch (error) {
+    console.error('Delete prompt error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to delete prompt')
     );
   }
 });
@@ -432,7 +520,12 @@ router.get('/plans/analytics', async (req, res) => {
 // @access  Admin
 router.post('/plans', validatePlanCreation, async (req, res) => {
   try {
-    const planData = req.body;
+    const planData = {
+      ...req.body,
+      createdBy: req.user._id,
+      isAdminCreated: true
+    };
+    console.log('Creating plan with data:', JSON.stringify(planData, null, 2));
 
     const plan = new Plan(planData);
     await plan.save();
@@ -442,8 +535,24 @@ router.post('/plans', validatePlanCreation, async (req, res) => {
     );
   } catch (error) {
     console.error('Create plan error:', error);
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json(
+        formatResponse(false, 'Validation failed', { errors: validationErrors })
+      );
+    }
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json(
+        formatResponse(false, 'Plan name already exists')
+      );
+    }
+
     res.status(500).json(
-      formatResponse(false, 'Failed to create plan')
+      formatResponse(false, 'Failed to create plan', { error: error.message })
     );
   }
 });
@@ -692,6 +801,47 @@ router.get('/recent-activity', async (req, res) => {
     console.error('Get recent activity error:', error);
     res.status(500).json(
       formatResponse(false, 'Failed to get recent activity')
+    );
+  }
+});
+
+// @route   DELETE /api/admin/plans/:id
+// @desc    Delete subscription plan
+// @access  Admin
+router.delete('/plans/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const plan = await Plan.findById(id);
+    if (!plan) {
+      return res.status(404).json(
+        formatResponse(false, 'Plan not found')
+      );
+    }
+
+    // Check if plan has active subscribers
+    if (plan.analytics && plan.analytics.activeSubscribers > 0) {
+      return res.status(400).json(
+        formatResponse(false, 'Cannot delete plan with active subscribers')
+      );
+    }
+
+    // Only admin can delete admin-created content
+    if (plan.isAdminCreated && req.user.role !== 'admin') {
+      return res.status(403).json(
+        formatResponse(false, 'Only admin can delete this content')
+      );
+    }
+
+    await Plan.findByIdAndDelete(id);
+
+    res.json(
+      formatResponse(true, 'Plan deleted successfully')
+    );
+  } catch (error) {
+    console.error('Delete plan error:', error);
+    res.status(500).json(
+      formatResponse(false, 'Failed to delete plan')
     );
   }
 });

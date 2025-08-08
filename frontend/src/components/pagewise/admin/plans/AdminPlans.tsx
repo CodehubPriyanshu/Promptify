@@ -22,7 +22,8 @@ import {
   Zap,
   Shield,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Check
 } from 'lucide-react';
 
 interface Plan {
@@ -128,26 +129,48 @@ const AdminPlans = () => {
 
   const handleSave = async () => {
     try {
-      // Basic validation
+      // Enhanced validation
       if (!editForm.name?.trim()) {
         toast({ title: 'Name required', description: 'Please enter a plan name.', variant: 'destructive' });
         return;
       }
 
+      if (!editForm.description?.trim()) {
+        toast({ title: 'Description required', description: 'Please enter a plan description.', variant: 'destructive' });
+        return;
+      }
+
+      if (!Number.isFinite(editForm.monthlyPrice) || editForm.monthlyPrice < 0) {
+        toast({ title: 'Invalid monthly price', description: 'Monthly price must be a valid number >= 0.', variant: 'destructive' });
+        return;
+      }
+
+      if (editForm.annualPrice !== undefined && editForm.annualPrice !== null && (!Number.isFinite(editForm.annualPrice) || editForm.annualPrice < 0)) {
+        toast({ title: 'Invalid annual price', description: 'Annual price must be a valid number >= 0.', variant: 'destructive' });
+        return;
+      }
+
       const payload: any = {
-        name: editForm.name,
-        description: editForm.description,
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
         price: {
-          monthly: Number.isFinite(editForm.monthlyPrice) ? editForm.monthlyPrice : 0,
-          yearly: Number.isFinite(editForm.annualPrice) ? editForm.annualPrice : 0,
+          monthly: editForm.monthlyPrice,
+          yearly: editForm.annualPrice || 0,
         },
-        features: (editForm.features || []).map((f) => ({ name: f, included: true })),
+        features: (editForm.features || []).filter(f => f?.trim()).map((f) => ({
+          name: f.trim(),
+          included: true
+        })),
         metadata: {
           popular: !!editForm.isPopular,
           order: Number.isFinite(editForm.priority) ? editForm.priority : 0,
         },
         isActive: !!editForm.isActive,
+        isVisible: true, // Default to visible
       };
+
+      // Log payload for debugging
+      console.log('Plan payload:', JSON.stringify(payload, null, 2));
 
       if (selectedPlan?.id) {
         await updatePlanMutation.mutateAsync({ id: selectedPlan.id, ...payload });
@@ -159,8 +182,12 @@ const AdminPlans = () => {
       setIsCreateDialogOpen(false);
       setSelectedPlan(null);
     } catch (error) {
-      // Error handling is done in the mutation hooks
       console.error('Failed to save plan:', error);
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+        variant: 'destructive'
+      });
     }
   };
 
