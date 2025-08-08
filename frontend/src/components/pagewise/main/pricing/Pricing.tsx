@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
+import { useSubscriptionPlans } from "@/hooks/useApi"
 
 declare global {
   interface Window {
@@ -20,7 +21,20 @@ const Pricing = () => {
   const [isAnnual, setIsAnnual] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const plans = [
+  // Live plans from backend
+  const { data: plansResp } = useSubscriptionPlans()
+  const plans = (plansResp?.data?.plans || []).map((p: any) => ({
+    id: p._id,
+    name: p.name,
+    description: p.description,
+    monthlyPrice: p.price?.monthly ?? 0,
+    annualPrice: p.price?.yearly ?? 0,
+    icon: p.metadata?.icon === 'star' ? <Star className="h-6 w-6" /> : p.metadata?.icon === 'crown' ? <Crown className="h-6 w-6" /> : <Zap className="h-6 w-6" />,
+    features: Array.isArray(p.features) ? p.features.filter((f: any) => f.included !== false).map((f: any) => f.name) : [],
+    limitations: [],
+    popular: p.metadata?.popular ?? false,
+    current: user?.subscription?.planId === p._id || user?.plan === p._id,
+  })) as Array<any>
     {
       id: 'free',
       name: 'Free',

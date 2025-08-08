@@ -50,6 +50,7 @@ const AdminPlans = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(false);
 
   // API hooks
   const { data: plansData, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useAdminPlans();
@@ -127,15 +128,31 @@ const AdminPlans = () => {
 
   const handleSave = async () => {
     try {
-      if (selectedPlan) {
-        // Update existing plan
-        await updatePlanMutation.mutateAsync({
-          id: selectedPlan.id,
-          ...editForm
-        });
+      // Basic validation
+      if (!editForm.name?.trim()) {
+        toast({ title: 'Name required', description: 'Please enter a plan name.', variant: 'destructive' });
+        return;
+      }
+
+      const payload: any = {
+        name: editForm.name,
+        description: editForm.description,
+        price: {
+          monthly: Number.isFinite(editForm.monthlyPrice) ? editForm.monthlyPrice : 0,
+          yearly: Number.isFinite(editForm.annualPrice) ? editForm.annualPrice : 0,
+        },
+        features: (editForm.features || []).map((f) => ({ name: f, included: true })),
+        metadata: {
+          popular: !!editForm.isPopular,
+          order: Number.isFinite(editForm.priority) ? editForm.priority : 0,
+        },
+        isActive: !!editForm.isActive,
+      };
+
+      if (selectedPlan?.id) {
+        await updatePlanMutation.mutateAsync({ id: selectedPlan.id, ...payload });
       } else {
-        // Create new plan
-        await createPlanMutation.mutateAsync(editForm);
+        await createPlanMutation.mutateAsync(payload);
       }
 
       setIsEditDialogOpen(false);
@@ -326,111 +343,76 @@ const AdminPlans = () => {
         </Card>
       </div>
 
-      {/* Plans Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscription Plans</CardTitle>
-          <CardDescription>
-            Manage your subscription plans and pricing
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plan</TableHead>
-                <TableHead>Pricing</TableHead>
-                <TableHead>Limits</TableHead>
-                <TableHead>Subscribers</TableHead>
-                <TableHead>Revenue</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans.sort((a, b) => a.priority - b.priority).map((plan) => (
-                <TableRow key={plan.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                        {getPlanIcon(plan.name)}
-                      </div>
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {plan.name}
-                          {plan.isPopular && (
-                            <Badge variant="secondary" className="text-xs">
-                              Popular
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {plan.description}
-                        </div>
-                      </div>
+      {/* Pricing Cards (editable) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Label htmlFor="admin-annual-toggle" className="text-sm">Bill annually</Label>
+            <Switch id="admin-annual-toggle" onCheckedChange={() => setIsAnnual(prev => !prev)} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          {plans
+            .map((plan: any) => ({
+              ...plan,
+              id: plan.id || plan._id,
+              monthly: plan.price?.monthly ?? plan.monthlyPrice ?? 0,
+              yearly: plan.price?.yearly ?? plan.annualPrice ?? 0,
+              popular: plan.metadata?.popular ?? plan.isPopular,
+              featuresList: Array.isArray(plan.features)
+                ? plan.features.map((f: any) => typeof f === 'string' ? f : f?.name).filter(Boolean)
+                : []
+            }))
+            .sort((a: any, b: any) => (a.metadata?.order ?? a.priority ?? 0) - (b.metadata?.order ?? b.priority ?? 0))
+            .map((plan: any) => (
+            <Card key={plan.id} className={`relative border-2 transition-all duration-300 hover:shadow-xl ${plan.popular ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50'}`}>
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <Badge className="bg-primary text-primary-foreground px-4 py-1">Most Popular</Badge>
+                </div>
+              )}
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button variant="ghost" size="icon" onClick={() => handleEdit(plan)} title="Edit plan">
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(plan)} title="Delete plan" disabled={(plan.analytics?.totalSubscribers ?? 0) > 0}>
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </div>
+              <CardHeader className="text-center pb-6">
+                <div className="mx-auto p-3 rounded-lg bg-primary/10 text-primary w-fit mb-4">
+                  {getPlanIcon(plan.name)}
+                </div>
+                <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                <CardDescription className="text-base">{plan.description}</CardDescription>
+                <div className="mt-3">
+                  <div className="text-4xl font-bold">
+                    ${isAnnual ? plan.yearly : plan.monthly}
+                    <span className="text-lg font-normal text-muted-foreground">/{isAnnual ? 'year' : 'month'}</span>
+                  </div>
+                  {isAnnual && plan.monthly > 0 && (
+                    <div className="text-sm text-muted-foreground">${plan.monthly}/month billed annually</div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  {plan.featuresList.map((feature: string, index: number) => (
+                    <div key={index} className="flex items-start">
+                      <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">{feature}</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">
-                        ${plan.monthlyPrice}/month
-                      </div>
-                      {plan.annualPrice > 0 && (
-                        <div className="text-sm text-muted-foreground">
-                          ${plan.annualPrice}/year
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm space-y-1">
-                      <div>{plan.maxUsers} user{plan.maxUsers > 1 ? 's' : ''}</div>
-                      <div>{plan.maxProjects} projects</div>
-                      <div>{plan.maxStorage}GB storage</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">
-                      {plan.analytics?.totalSubscribers?.toLocaleString() || '0'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">
-                      ${plan.analytics?.totalRevenue?.toLocaleString() || '0'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={plan.isActive ? 'default' : 'secondary'}>
-                      {plan.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(plan)}
-                        title="Edit plan"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDeleteDialog(plan)}
-                        title="Delete plan"
-                        disabled={plan.subscribers > 0}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Subscribers: {(plan.analytics?.totalSubscribers ?? 0).toLocaleString()}</span>
+                  <span>Revenue: ${(plan.analytics?.totalRevenue ?? 0).toLocaleString()}</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
 
       {/* Edit/Create Dialog */}
       <Dialog open={isEditDialogOpen || isCreateDialogOpen} onOpenChange={(open) => {

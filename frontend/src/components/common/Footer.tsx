@@ -14,22 +14,21 @@ const Footer = () => {
   const { openModal } = useModal()
 
   const footerLinks = {
-    product: [
-      { name: "Features", href: "/features" },
-      { name: "Pricing", href: "/pricing" },
-      { name: "Marketplace", href: "/marketplace" },
-      { name: "Playground", href: "/playground" }
-    ],
-    company: [
-      { name: "About", href: "/about" },
-      { name: "Contact Sales", action: () => openModal('contact') }
-    ],
     legal: [
       { name: "Privacy Policy", action: () => openModal('privacy') },
       { name: "Terms of Service", action: () => openModal('terms') },
       { name: "Cookie Policy", action: () => openModal('privacy') }
     ],
-
+    company: [
+      { name: "About", href: "/about" },
+      { name: "Contact Sales", action: () => openModal('contact') }
+    ],
+    product: [
+      { name: "Features", href: "/features" },
+      { name: "Pricing", href: "/pricing" },
+      { name: "Marketplace", href: "/marketplace" },
+      { name: "Playground", href: "/playground" }
+    ]
   }
 
   const socialLinks = [
@@ -42,16 +41,17 @@ const Footer = () => {
   return (
     <footer className="bg-muted/30 border-t">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Main Footer Content */}
+        <div className="footer flex flex-col md:flex-row justify-between items-start md:items-center space-y-8 md:space-y-0">
           {/* Brand Section */}
-          <div className="lg:col-span-2">
+          <div className="flex-1 max-w-sm">
             <div className="flex items-center space-x-2 mb-4">
               <div className="p-2 rounded-lg bg-primary text-primary-foreground">
                 <Bot className="h-6 w-6" />
               </div>
               <span className="text-xl font-bold">Promptify</span>
             </div>
-            <p className="text-muted-foreground mb-6 max-w-sm">
+            <p className="text-muted-foreground mb-6">
               Transform your ideas into powerful AI prompts. Create, test, and share 
               with our comprehensive platform designed for creators and professionals.
             </p>
@@ -79,70 +79,69 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Product Links */}
-          <div>
-            <h3 className="font-semibold mb-4">Product</h3>
-            <ul className="space-y-3">
-              {footerLinks.product.map((link) => (
-                <li key={link.name}>
-                  <Link 
-                    to={link.href} 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Company Links */}
-          <div>
-            <h3 className="font-semibold mb-4">Company</h3>
-            <ul className="space-y-3">
-              {footerLinks.company.map((link) => (
-                <li key={link.name}>
-                  {link.href ? (
-                    <Link 
-                      to={link.href} 
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  ) : (
+          {/* Footer Sections */}
+          <div className="footer-sections flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-12">
+            {/* Legal Section */}
+            <div className="footer-section">
+              <h3 className="font-semibold mb-4">Legal</h3>
+              <ul className="space-y-3">
+                {footerLinks.legal.map((link) => (
+                  <li key={link.name}>
                     <button
                       onClick={link.action}
                       className="text-muted-foreground hover:text-foreground transition-colors text-left"
                     >
                       {link.name}
                     </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Company Section */}
+            <div className="footer-section">
+              <h3 className="font-semibold mb-4">Company</h3>
+              <ul className="space-y-3">
+                {footerLinks.company.map((link) => (
+                  <li key={link.name}>
+                    {link.href ? (
+                      <Link 
+                        to={link.href} 
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {link.name}
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={link.action}
+                        className="text-muted-foreground hover:text-foreground transition-colors text-left"
+                      >
+                        {link.name}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Product Section */}
+            <div className="footer-section">
+              <h3 className="font-semibold mb-4">Product</h3>
+              <ul className="space-y-3">
+                {footerLinks.product.map((link) => (
+                  <li key={link.name}>
+                    <Link 
+                      to={link.href} 
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-
-          {/* Legal Links */}
-          <div>
-            <h3 className="font-semibold mb-4">Legal</h3>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.name}>
-                  <button
-                    onClick={link.action}
-                    className="text-muted-foreground hover:text-foreground transition-colors text-left"
-                  >
-                    {link.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-
         </div>
-
-
 
         {/* Bottom Section */}
         <div className="border-t border-border mt-12 pt-8">
@@ -164,6 +163,46 @@ const Footer = () => {
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .footer {
+          display: flex;
+          justify-content: space-between;
+        }
+        
+        .footer-sections {
+          display: flex;
+        }
+        
+        .footer-section:not(:last-child) {
+          border-right: 1px solid #e0e0e0;
+          padding-right: 3rem;
+          margin-right: 3rem;
+        }
+        
+        @media (max-width: 768px) {
+          .footer {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+          
+          .footer-sections {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+          
+          .footer-section:not(:last-child) {
+            border-right: none;
+            border-bottom: 1px solid #e0e0e0;
+            padding-right: 0;
+            padding-bottom: 2rem;
+            margin-right: 0;
+            margin-bottom: 2rem;
+          }
+        }
+      `}</style>
     </footer>
   )
 }

@@ -366,6 +366,7 @@ export const useCreatePlan = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionPlans });
       toast({
         title: "Success",
         description: "Plan created successfully",
@@ -386,6 +387,7 @@ export const useUpdatePlan = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionPlans });
       toast({
         title: "Success",
         description: "Plan updated successfully",
@@ -406,6 +408,7 @@ export const useDeletePlan = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlans });
       queryClient.invalidateQueries({ queryKey: queryKeys.adminPlansAnalytics });
+      queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionPlans });
       toast({
         title: "Success",
         description: "Plan deleted successfully",
