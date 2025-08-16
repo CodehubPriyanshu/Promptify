@@ -78,14 +78,19 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS configuration - Allow multiple frontend origins for development
+// CORS configuration - Allow multiple frontend origins for development and production
 const allowedOrigins = [
   'http://localhost:3000',   // Original frontend port
   'http://localhost:5173',   // Vite default port
   'http://localhost:8080',   // Alternative Vite port
   'http://localhost:8081',   // Current frontend port
   'http://localhost:5001',   // Backend port (for testing)
-  process.env.FRONTEND_URL   // Environment variable
+  process.env.FRONTEND_URL,  // Environment variable (Render production)
+  // Add common Render subdomains patterns
+  ...(process.env.FRONTEND_URL ? [
+    process.env.FRONTEND_URL.replace('http://', 'https://'),  // Ensure HTTPS variant
+    process.env.FRONTEND_URL.replace('https://', 'http://')   // Ensure HTTP variant
+  ] : [])
 ].filter(Boolean); // Remove any undefined values
 
 app.use(cors({

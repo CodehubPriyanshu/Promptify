@@ -1,6 +1,22 @@
 import { handleError, withRetry, AppError, ErrorTypes } from '@/utils/errorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Construct API URL based on environment
+const getApiBaseUrl = () => {
+  // Use VITE_API_URL if directly set (for development)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Use VITE_BACKEND_URL with /api appended (for Render production)
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return `${import.meta.env.VITE_BACKEND_URL}/api`;
+  }
+  
+  // Fallback to localhost for development
+  return 'http://localhost:8002/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface ApiResponse<T> {
   success: boolean;
