@@ -129,6 +129,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root route - API welcome message
+app.get('/', (req, res) => {
+  res.json({ message: "API is running successfully 🚀" });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);

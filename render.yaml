@@ -13,7 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 8001
       - key: FRONTEND_URL
         fromService:
           type: web
@@ -76,11 +76,8 @@ services:
         name: Referrer-Policy
         value: strict-origin-when-cross-origin
     envVars:
-      - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: promptify-backend
-          property: url
+      - key: VITE_API_URL
+        sync: false  # Set this manually in Render dashboard as: https://promptify-backend.onrender.com/api
       - key: VITE_APP_NAME
         value: Promptify
       - key: VITE_APP_VERSION
